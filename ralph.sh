@@ -58,8 +58,11 @@ if [ -z "$TOPIC" ] && [ "$RUN_ONLY" = false ]; then
 fi
 
 # ── 필수 파일 체크 ───────────────────────────────────────────
-if [ ! -f "PROMPT.md" ]; then
-  echo -e "${RED}Error: PROMPT.md not found${NC}"; exit 1
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROMPTS_DIR="${SCRIPT_DIR}/prompts"
+
+if [ ! -f "${PROMPTS_DIR}/PROMPT.md" ]; then
+  echo -e "${RED}Error: prompts/PROMPT.md not found${NC}"; exit 1
 fi
 
 # ── 자동 생성: queue.md ──────────────────────────────────────
@@ -319,9 +322,9 @@ if [ "$UPDATE_MODE" = true ] && [ -n "$TOPIC" ]; then
 1. docs/knowledge/${UPDATE_SLUG}.md 와 docs/reports/${UPDATE_SLUG}_report.md 를 읽어.
 2. docs/research/${UPDATE_SLUG}.json 을 읽어서 기존 문서에 반영 안 된 최신 논문을 파악해.
 3. 웹 검색으로 최신 동향(2025-2026)도 추가 조사해.
-4. update.md 의 병합 정책에 따라 기존 문서를 최신화해.
-5. verify-knowledge.md 로 검증하고 결과를 출력해.
-6. verify-report.md 로 검증하고 결과를 출력해.
+4. prompts/update.md 의 병합 정책에 따라 기존 문서를 최신화해.
+5. prompts/verify-knowledge.md 로 검증하고 결과를 출력해.
+6. prompts/verify-report.md 로 검증하고 결과를 출력해.
 7. queue.md에서 source_of: "${UPDATE_SLUG}" 인 pending 항목이 있으면 모두 status: done으로 변경해 (종합 문서에 반영됐으므로).
 
 ## 출력
@@ -440,7 +443,7 @@ echo -e "최대 반복 횟수: ${GREEN}$MAX_ITERATIONS${NC}"
 echo ""
 
 # PROMPT.md 절대 경로 캐싱
-PROMPT_PATH="$(cd "$(dirname "PROMPT.md")" && pwd)/PROMPT.md"
+PROMPT_PATH="${PROMPTS_DIR}/PROMPT.md"
 
 echo -e "${YELLOW}2초 후 시작... 중단하려면 Ctrl+C${NC}"
 sleep 2
@@ -551,9 +554,9 @@ RPYEOF
 
   # Claude 실행
   if [ "$PDF_COUNT" -gt 0 ]; then
-    result=$(eval claude -p "\"$(cat PROMPT.md)\"" $FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
+    result=$(eval claude -p "\"$(cat "${PROMPTS_DIR}/PROMPT.md")\"" $FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
   else
-    result=$(claude -p "$(cat PROMPT.md)" \
+    result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
       --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
       --output-format text 2>&1) || true
   fi
@@ -574,11 +577,11 @@ RPYEOF
     if [ -n "$CURRENT_PDF" ] && [ -f "$CURRENT_PDF" ]; then
       echo -e "${GREEN}📄 PDF 첨부: $CURRENT_PDF${NC}"
       echo ""
-      result=$(claude -p "$(cat PROMPT.md)" \
+      result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
         --file "$CURRENT_PDF" \
         --output-format text 2>&1) || true
     else
-      result=$(claude -p "$(cat PROMPT.md)" \
+      result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
         --output-format text 2>&1) || true
     fi
 

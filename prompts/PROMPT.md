@@ -34,7 +34,7 @@
 - `limited`인 경우 문서 상단에 `⚠️ 원문 접근 불가` 명시
 
 ### A-3. 문서 생성
-`add-knowledge.md` 지침을 따라 두 파일 생성:
+`prompts/add-knowledge.md` 지침을 따라 두 파일 생성:
 - `docs/knowledge/{slug}.md` — 주제 중심 통합 (개별 논문 요약 금지)
 - `docs/reports/{slug}_report.md` — 비유/예시 + 수식 구현 포함
 
@@ -43,7 +43,7 @@
 - 수치 인용 시 원문 위치(Section/Table/Figure)도 기록.
 
 ### A-4. 검증
-- `verify-knowledge.md` → `verify-report.md` 순서로 검증
+- `prompts/verify-knowledge.md` → `prompts/verify-report.md` 순서로 검증
 - Fail 시 1회 수정 후 재검증. 재실패 시 `⚠️ 수동 검토 필요` 기록 후 진행.
 
 ### A-5. 완료 처리
@@ -63,7 +63,7 @@
 
 ### B-1. 대상: 가장 오래된 또는 verify 점수 가장 낮은 knowledge 문서
 ### B-2. 갭 분석: 빈약 섹션, 출처 없는 주장, `docs/research/{slug}.json`과 대조
-### B-3. `update.md` 병합 정책으로 보강 + 웹 검색 보완
+### B-3. `prompts/update.md` 병합 정책으로 보강 + 웹 검색 보완
 ### B-4. verify 재실행, 점수 업데이트
 
 ```
@@ -84,7 +84,7 @@ priority:1이 done인데 하위(priority:2+) pending이 남은 경우:
 
 - **파일 수정은 변경 부분만.** 전체 덮어쓰기 금지.
 - **네트워크 오류 시 limited로 강등 후 계속.** 루프 중단 금지.
-- **지침 파일은 해당 단계에서만 읽기.** (add-knowledge.md, verify-*.md, update.md)
+- **지침 파일은 해당 단계에서만 읽기.** (prompts/add-knowledge.md, prompts/verify-*.md, prompts/update.md)
 - **웹 검색 절약.** research JSON이 충분하면 검색 최소화.
 - **대화창 출력은 요약만.** 논문 목록 반복 출력 금지.
 
