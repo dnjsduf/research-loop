@@ -593,6 +593,11 @@ for leaf in data['leaves']:
 LLEOF
     )
 
+    # 디버그: 리프 목록 확인
+    LEAF_LINE_COUNT=$(echo "$LEAF_LIST" | wc -l)
+    echo -e "${YELLOW}  [DEBUG] LEAF_LIST: ${LEAF_LINE_COUNT}줄${NC}"
+    echo "$LEAF_LIST" | head -10 | while IFS= read -r dbg; do echo "    $dbg"; done
+
     # 배치 병렬 실행
     BATCH_NUM=0
     RUNNING=0
@@ -632,8 +637,8 @@ LLEOF
         BATCH_NUM=$((BATCH_NUM + 1))
         echo -e "${YELLOW}  ⏳ 배치 ${BATCH_NUM} 대기 (${RUNNING}개 실행 중)...${NC}"
         for idx in "${!PIDS[@]}"; do
-          wait "${PIDS[$idx]}" 2>/dev/null
-          EXIT_CODE=$?
+          EXIT_CODE=0
+          wait "${PIDS[$idx]}" 2>/dev/null || EXIT_CODE=$?
           if [ "$EXIT_CODE" -eq 0 ]; then
             echo -e "${GREEN}  ✓ 완료: \"${LEAF_TOPICS[$idx]}\"${NC}"
             COMPLETED=$((COMPLETED + 1))
