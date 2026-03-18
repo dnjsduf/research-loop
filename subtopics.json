@@ -2,50 +2,57 @@
   "root": "인체동역학",
   "tree": {
     "인체동역학": [
-      "human joint mechanics and articular dynamics",
-      "musculoskeletal modeling and simulation",
-      "gait analysis and locomotion biomechanics",
+      "human gait analysis and locomotion biomechanics",
       "upper extremity dynamics and manipulation",
-      "sports biomechanics and human performance",
-      "ergonomics and occupational biomechanics",
-      "injury mechanics and rehabilitation dynamics"
+      "spine and trunk biomechanics",
+      "joint mechanics and articular contact dynamics",
+      "muscle-tendon dynamics and force generation",
+      "impact biomechanics and injury mechanics",
+      "balance and postural control dynamics",
+      "sports biomechanics and human performance"
     ],
-    "human joint mechanics and articular dynamics": [
-      "musculoskeletal modeling and simulation",
-      "gait analysis and locomotion biomechanics",
+    "human gait analysis and locomotion biomechanics": [
       "upper extremity dynamics and manipulation",
-      "sports biomechanics and human performance",
-      "ergonomics and occupational biomechanics",
-      "injury mechanics and rehabilitation dynamics"
+      "spine and trunk biomechanics",
+      "joint mechanics and articular contact dynamics",
+      "muscle-tendon dynamics and force generation",
+      "impact biomechanics and injury mechanics",
+      "balance and postural control dynamics",
+      "sports biomechanics and human performance"
     ],
-    "musculoskeletal modeling and simulation": [
-      "walking gait kinematics and kinetics",
-      "running and sprinting biomechanics",
-      "pathological gait and clinical gait analysis",
-      "locomotion energetics and efficiency",
-      "assistive devices and prosthetic gait biomechanics"
+    "upper extremity dynamics and manipulation": [
+      "spine and trunk biomechanics",
+      "joint mechanics and articular contact dynamics",
+      "muscle-tendon dynamics and force generation",
+      "impact biomechanics and injury mechanics",
+      "balance and postural control dynamics",
+      "sports biomechanics and human performance"
     ]
   },
   "leaves": [
     {
-      "topic": "walking gait kinematics and kinetics",
-      "path": "human-joint-mechanics-and-articular-dynamics/musculoskeletal-modeling-and-simulation/walking-gait-kinematics-and-kinetics"
+      "topic": "spine and trunk biomechanics",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/spine-and-trunk-biomechanics"
     },
     {
-      "topic": "running and sprinting biomechanics",
-      "path": "human-joint-mechanics-and-articular-dynamics/musculoskeletal-modeling-and-simulation/running-and-sprinting-biomechanics"
+      "topic": "joint mechanics and articular contact dynamics",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/joint-mechanics-and-articular-contact-dynamics"
     },
     {
-      "topic": "pathological gait and clinical gait analysis",
-      "path": "human-joint-mechanics-and-articular-dynamics/musculoskeletal-modeling-and-simulation/pathological-gait-and-clinical-gait-analysis"
+      "topic": "muscle-tendon dynamics and force generation",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/muscle-tendon-dynamics-and-force-generation"
     },
     {
-      "topic": "locomotion energetics and efficiency",
-      "path": "human-joint-mechanics-and-articular-dynamics/musculoskeletal-modeling-and-simulation/locomotion-energetics-and-efficiency"
+      "topic": "impact biomechanics and injury mechanics",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/impact-biomechanics-and-injury-mechanics"
     },
     {
-      "topic": "assistive devices and prosthetic gait biomechanics",
-      "path": "human-joint-mechanics-and-articular-dynamics/musculoskeletal-modeling-and-simulation/assistive-devices-and-prosthetic-gait-biomechanics"
+      "topic": "balance and postural control dynamics",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/balance-and-postural-control-dynamics"
+    },
+    {
+      "topic": "sports biomechanics and human performance",
+      "path": "human-gait-analysis-and-locomotion-biomechanics/upper-extremity-dynamics-and-manipulation/sports-biomechanics-and-human-performance"
     }
   ]
 }

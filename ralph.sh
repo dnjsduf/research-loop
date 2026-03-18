@@ -625,7 +625,7 @@ LLEOF
         bash "${SCRIPT_DIR}/ralph.sh" "$LEAF_TOPIC" --no-split --iterations "$MAX_ITERATIONS" \
           ${UNPAYWALL_EMAIL:+--email "$UNPAYWALL_EMAIL"} \
           > "ralph-output.log" 2>&1
-      ) &
+      ) < /dev/null &
 
       PIDS+=($!)
       LEAF_TOPICS+=("$LEAF_TOPIC")
