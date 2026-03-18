@@ -245,12 +245,44 @@ if [ ! -f "$INACCESSIBLE_FILE" ]; then
 # ==========================================
 # PDF 다운로드에 실패한 유료/비공개 논문 목록입니다.
 # 수동으로 확보 후 docs/sources/ 에 넣고 queue.md의 local_path를 업데이트하세요.
-#
-# 형식: [날짜] 제목 | URL | 시도한 방법
 # ==========================================
 
 IAEOF
 fi
+
+# research JSON에서 논문 상세 정보 조회
+lookup_paper_info() {
+  local TITLE="$1"
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$TITLE" << 'PYEOF' 2>/dev/null || echo ""
+import sys, json, os, glob
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+title = sys.argv[1].lower().strip()
+info = {"authors": "", "year": "", "doi": "", "abstract": ""}
+
+for jf in glob.glob("docs/research/*.json"):
+    try:
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for p in data.get('papers', []):
+            if p.get('title', '').lower().strip() == title:
+                authors = p.get('authors', [])
+                info['authors'] = ', '.join(authors[:3])
+                if len(authors) > 3:
+                    info['authors'] += ' et al.'
+                info['year'] = str(p.get('year', ''))
+                info['doi'] = p.get('doi', '')
+                info['abstract'] = (p.get('abstract', '') or '')[:200]
+                break
+    except:
+        continue
+
+print(f"AUTHORS={info['authors']}")
+print(f"YEAR={info['year']}")
+print(f"DOI={info['doi']}")
+print(f"ABSTRACT={info['abstract']}")
+PYEOF
+}
 
 MAX_PARALLEL=3
 ACTIVE_JOBS=0
@@ -290,13 +322,36 @@ download_one() {
   else
     echo -e "  ${YELLOW}✗ $SAFE_NAME — url/limited${NC}"
     rm -f "$OUTPUT"
-    # 접근 불가 논문 기록
+
+    # 접근 불가 논문 상세 기록
     local TODAY
     TODAY=$(date +%Y-%m-%d)
     local METHODS="arXiv"
     [ -n "$UNPAYWALL_EMAIL" ] && METHODS="$METHODS, Unpaywall"
     METHODS="$METHODS, Semantic Scholar"
-    echo "[$TODAY] $TITLE | $URL | 시도: $METHODS" >> "$INACCESSIBLE_FILE"
+
+    # research JSON에서 추가 정보 조회
+    local PAPER_INFO
+    PAPER_INFO=$(lookup_paper_info "$TITLE")
+    local P_AUTHORS P_YEAR P_DOI P_ABSTRACT
+    P_AUTHORS=$(echo "$PAPER_INFO" | grep "^AUTHORS=" | cut -d= -f2-)
+    P_YEAR=$(echo "$PAPER_INFO" | grep "^YEAR=" | cut -d= -f2-)
+    P_DOI=$(echo "$PAPER_INFO" | grep "^DOI=" | cut -d= -f2-)
+    P_ABSTRACT=$(echo "$PAPER_INFO" | grep "^ABSTRACT=" | cut -d= -f2-)
+
+    {
+      echo "---"
+      echo "제목: $TITLE"
+      [ -n "$P_AUTHORS" ] && echo "저자: $P_AUTHORS"
+      [ -n "$P_YEAR" ] && [ "$P_YEAR" != "0" ] && echo "연도: $P_YEAR"
+      echo "URL: $URL"
+      [ -n "$P_DOI" ] && echo "DOI: $P_DOI"
+      [ -n "$P_DOI" ] && echo "DOI링크: https://doi.org/$P_DOI"
+      [ -n "$P_ABSTRACT" ] && echo "초록: $P_ABSTRACT..."
+      echo "시도 방법: $METHODS"
+      echo "실패 날짜: $TODAY"
+      echo ""
+    } >> "$INACCESSIBLE_FILE"
   fi
 }
 
