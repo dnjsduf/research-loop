@@ -402,6 +402,57 @@ def fetch_citation_chain(paper_id, direction='references', limit=10):
         })
     return papers
 
+# ── Stage 3.5: GitHub/공개 코드 탐색 (Papers With Code API) ───
+
+def search_github_repos(papers):
+    """Papers With Code API로 논문에 연결된 GitHub 레포 탐색"""
+    print("🔧 공개 코드 탐색 중...")
+    found = 0
+    for p in papers[:15]:  # 상위 15개만
+        title = p.get('title', '')
+        if not title:
+            continue
+
+        # Papers With Code API 검색
+        pwc_url = f"https://paperswithcode.com/api/v1/papers/?q={quote(title[:80])}"
+        data = api_get(pwc_url, timeout=10)
+        if not data or 'results' not in data or not data['results']:
+            continue
+
+        # 첫 번째 결과에서 레포 정보
+        paper_id = data['results'][0].get('id', '')
+        if not paper_id:
+            continue
+
+        repos_url = f"https://paperswithcode.com/api/v1/papers/{paper_id}/repositories/"
+        repos_data = api_get(repos_url, timeout=10)
+        if not repos_data or 'results' not in repos_data:
+            continue
+
+        repos = []
+        for r in repos_data['results'][:3]:
+            repo_info = {
+                'url': r.get('url', ''),
+                'stars': r.get('stars', 0),
+                'framework': r.get('framework', ''),
+                'is_official': r.get('is_official', False),
+            }
+            if repo_info['url']:
+                repos.append(repo_info)
+
+        if repos:
+            p['github_repos'] = repos
+            found += 1
+            best = repos[0]
+            tag = "★공식" if best['is_official'] else ""
+            print(f"  ✓ {title[:50]}... → {best['url']} ({best['stars']}★) {tag}")
+
+        adaptive_sleep(0.3)
+
+    print(f"  공개 코드 발견: {found}개 논문")
+    print()
+    return papers
+
 # ── Stage 4: 중복 제거 + 랭킹 ────────────────────────────────
 
 def deduplicate(papers):
@@ -772,6 +823,11 @@ all_papers = deduplicate(all_papers)
 all_papers = rank_papers(all_papers, topic)
 total_deduped = len(all_papers)
 
+# GitHub/공개 코드 탐색
+top_for_github = all_papers[:max_results]
+top_for_github = search_github_repos(top_for_github)
+all_papers[:max_results] = top_for_github
+
 top_papers = all_papers[:max_results]
 
 # 클러스터링 — 커버리지 맵 생성
@@ -828,6 +884,7 @@ for i, p in enumerate(top_papers, 1):
         'open_access_url': p.get('open_access_url', ''),
         'source_apis': p.get('source_apis', []),
         'found_via': p.get('found_via', 'direct_search'),
+        'github_repos': p.get('github_repos', []),
     })
 
 json_path = f"docs/research/{slug}.json"

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "autoAllow": [
+      "Read(./)",
+      "Write(./)",
+      "Edit(./)",
+      "Glob(./)",
+      "Grep(./)",
+      "WebSearch",
+      "WebFetch",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(date *)",
+      "Bash(du *)",
+      "Bash(file *)",
+      "Bash(curl *)",
+      "Bash(rm fetch-signal.txt)",
+      "Bash(python3 queue-util.py *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push -q)",
+      "Bash(git init *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git remote *)"
+    ],
+    "deny": [
+      "Read(~/.ssh/*)",
+      "Read(~/.env*)",
+      "Write(../)",
+      "Edit(../)",
+      "Bash(rm -rf *)",
+      "Bash(rm -r *)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout -- *)",
+      "Bash(python3 -c *)",
+      "Bash(python3 - *)"
+    ]
+  }
+}
