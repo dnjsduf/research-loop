@@ -3,56 +3,64 @@
   "tree": {
     "인체동역학": [
       "gait analysis and locomotion biomechanics",
-      "musculoskeletal modeling and simulation",
-      "joint kinematics and kinetics",
-      "sports biomechanics and human performance",
-      "postural control and balance dynamics",
       "upper extremity biomechanics and manipulation",
-      "injury biomechanics and impact dynamics",
+      "spine and trunk biomechanics",
+      "joint mechanics and articular cartilage",
+      "musculoskeletal modeling and simulation",
+      "impact biomechanics and injury mechanics",
+      "neuromuscular control and motor coordination",
+      "sports biomechanics and human performance",
+      "ergonomics and occupational biomechanics",
       "rehabilitation biomechanics and assistive devices"
     ],
-    "gait analysis and locomotion biomechanics\r": [
-      "musculoskeletal modeling and simulation",
-      "joint kinematics and kinetics",
-      "sports biomechanics and human performance",
-      "postural control and balance dynamics",
-      "upper extremity biomechanics and manipulation",
-      "injury biomechanics and impact dynamics",
-      "rehabilitation biomechanics and assistive devices"
+    "gait analysis and locomotion biomechanics": [
+      "walking gait kinematics and kinetics",
+      "running and sprinting biomechanics",
+      "pathological gait and clinical gait analysis",
+      "locomotion energetics and efficiency",
+      "gait measurement technologies and instrumentation",
+      "balance and stability during locomotion",
+      "developmental and aging gait biomechanics",
+      "adaptive locomotion and terrain interaction"
     ],
-    "musculoskeletal modeling and simulation\r": [
-      "joint kinematics and kinetics",
-      "sports biomechanics and human performance",
-      "postural control and balance dynamics",
-      "upper extremity biomechanics and manipulation",
-      "injury biomechanics and impact dynamics",
-      "rehabilitation biomechanics and assistive devices"
+    "walking gait kinematics and kinetics": [
+      "running and sprinting biomechanics",
+      "pathological gait and clinical gait analysis",
+      "locomotion energetics and efficiency",
+      "gait measurement technologies and instrumentation",
+      "balance and stability during locomotion",
+      "developmental and aging gait biomechanics",
+      "adaptive locomotion and terrain interaction"
     ]
   },
   "leaves": [
     {
-      "topic": "joint kinematics and kinetics\r",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/joint-kinematics-and-kinetics"
+      "topic": "running and sprinting biomechanics",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/running-and-sprinting-biomechanics"
     },
     {
-      "topic": "sports biomechanics and human performance\r",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/sports-biomechanics-and-human-performance"
+      "topic": "pathological gait and clinical gait analysis",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/pathological-gait-and-clinical-gait-analysis"
     },
     {
-      "topic": "postural control and balance dynamics\r",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/postural-control-and-balance-dynamics"
+      "topic": "locomotion energetics and efficiency",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/locomotion-energetics-and-efficiency"
     },
     {
-      "topic": "upper extremity biomechanics and manipulation\r",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/upper-extremity-biomechanics-and-manipulation"
+      "topic": "gait measurement technologies and instrumentation",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/gait-measurement-technologies-and-instrumentation"
     },
     {
-      "topic": "injury biomechanics and impact dynamics\r",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/injury-biomechanics-and-impact-dynamics"
+      "topic": "balance and stability during locomotion",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/balance-and-stability-during-locomotion"
     },
     {
-      "topic": "rehabilitation biomechanics and assistive devices",
-      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/rehabilitation-biomechanics-and-assistive-devices"
+      "topic": "developmental and aging gait biomechanics",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/developmental-and-aging-gait-biomechanics"
+    },
+    {
+      "topic": "adaptive locomotion and terrain interaction",
+      "path": "gait-analysis-and-locomotion-biomechanics/walking-gait-kinematics-and-kinetics/adaptive-locomotion-and-terrain-interaction"
     }
   ]
 }

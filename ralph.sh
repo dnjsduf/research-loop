@@ -524,10 +524,11 @@ TREEEOF
 
     # 각 서브토픽에 대해 재귀 분할
     while IFS= read -r sub; do
+      sub="$(echo "$sub" | tr -d '\r')"
       [ -z "$sub" ] && continue
       # slug 생성
       local SUB_SLUG
-      SUB_SLUG=$(echo "$sub" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | \
+      SUB_SLUG=$(echo "$sub" | tr '[:upper:]' '[:lower:]' | \
                  sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | \
                  sed 's/^-//' | sed 's/-$//' | cut -c1-60)
       # Git Bash 경로 변환 방지: 선행 / 없이 상대경로 유지
