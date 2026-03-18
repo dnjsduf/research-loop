@@ -1,0 +1,58 @@
+{
+  "root": "인체동역학",
+  "tree": {
+    "인체동역학": [
+      "gait analysis and locomotion biomechanics",
+      "musculoskeletal modeling and simulation",
+      "joint kinematics and kinetics",
+      "sports biomechanics and human performance",
+      "postural control and balance dynamics",
+      "upper extremity biomechanics and manipulation",
+      "injury biomechanics and impact dynamics",
+      "rehabilitation biomechanics and assistive devices"
+    ],
+    "gait analysis and locomotion biomechanics\r": [
+      "musculoskeletal modeling and simulation",
+      "joint kinematics and kinetics",
+      "sports biomechanics and human performance",
+      "postural control and balance dynamics",
+      "upper extremity biomechanics and manipulation",
+      "injury biomechanics and impact dynamics",
+      "rehabilitation biomechanics and assistive devices"
+    ],
+    "musculoskeletal modeling and simulation\r": [
+      "joint kinematics and kinetics",
+      "sports biomechanics and human performance",
+      "postural control and balance dynamics",
+      "upper extremity biomechanics and manipulation",
+      "injury biomechanics and impact dynamics",
+      "rehabilitation biomechanics and assistive devices"
+    ]
+  },
+  "leaves": [
+    {
+      "topic": "joint kinematics and kinetics\r",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/joint-kinematics-and-kinetics"
+    },
+    {
+      "topic": "sports biomechanics and human performance\r",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/sports-biomechanics-and-human-performance"
+    },
+    {
+      "topic": "postural control and balance dynamics\r",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/postural-control-and-balance-dynamics"
+    },
+    {
+      "topic": "upper extremity biomechanics and manipulation\r",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/upper-extremity-biomechanics-and-manipulation"
+    },
+    {
+      "topic": "injury biomechanics and impact dynamics\r",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/injury-biomechanics-and-impact-dynamics"
+    },
+    {
+      "topic": "rehabilitation biomechanics and assistive devices",
+      "path": "gait-analysis-and-locomotion-biomechanics/musculoskeletal-modeling-and-simulation/rehabilitation-biomechanics-and-assistive-devices"
+    }
+  ]
+}

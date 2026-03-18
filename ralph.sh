@@ -527,11 +527,16 @@ TREEEOF
       [ -z "$sub" ] && continue
       # slug 생성
       local SUB_SLUG
-      SUB_SLUG=$(echo "$sub" | tr '[:upper:]' '[:lower:]' | \
+      SUB_SLUG=$(echo "$sub" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | \
                  sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | \
                  sed 's/^-//' | sed 's/-$//' | cut -c1-60)
-      local SUB_PATH="${PARENT_PATH}/${SUB_SLUG}"
-      mkdir -p "subtopics${SUB_PATH}"
+      # Git Bash 경로 변환 방지: 선행 / 없이 상대경로 유지
+      if [ -z "$PARENT_PATH" ]; then
+        local SUB_PATH="${SUB_SLUG}"
+      else
+        local SUB_PATH="${PARENT_PATH}/${SUB_SLUG}"
+      fi
+      mkdir -p "subtopics/${SUB_PATH}"
       echo -e "  $( printf '%*s' $((DEPTH * 2)) '' )├── $sub"
       split_topic_recursive "$sub" $((DEPTH + 1)) "$SUB_PATH"
     done <<< "$SUBTOPICS"
@@ -599,8 +604,8 @@ LLEOF
     while IFS= read -r leaf_line; do
       [ -z "$leaf_line" ] && continue
       LEAF_TOPIC="${leaf_line%%|||*}"
-      LEAF_PATH="${leaf_line##*|||}"
-      LEAF_DIR="subtopics${LEAF_PATH}"
+      LEAF_PATH="$(echo "${leaf_line##*|||}" | tr -d '\r')"
+      LEAF_DIR="subtopics/${LEAF_PATH}"
 
       # 서브토픽 폴더에서 독립 실행
       echo -e "${BLUE}  ▶ 시작: \"$LEAF_TOPIC\" (${LEAF_DIR})${NC}"
@@ -682,7 +687,8 @@ LL2EOF
 
     while IFS= read -r leaf_path; do
       [ -z "$leaf_path" ] && continue
-      LEAF_DIR="subtopics${leaf_path}"
+      leaf_path="$(echo "$leaf_path" | tr -d '\r')"
+      LEAF_DIR="subtopics/${leaf_path}"
 
       # knowledge, reports 복사 (sources, research는 제외 — 용량 대비 가치 낮음)
       if [ -d "${LEAF_DIR}/docs/knowledge" ]; then
