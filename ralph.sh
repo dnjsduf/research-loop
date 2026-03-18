@@ -26,6 +26,8 @@ URL=""
 MAX_ITERATIONS=10
 RUN_ONLY=false
 UPDATE_MODE=false
+NO_SPLIT=false
+PARALLEL=3
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,6 +35,8 @@ while [[ $# -gt 0 ]]; do
     --run)        RUN_ONLY=true; MAX_ITERATIONS="$2"; shift 2 ;;
     --update)     UPDATE_MODE=true; shift ;;
     --email)      UNPAYWALL_EMAIL="$2"; export UNPAYWALL_EMAIL; shift 2 ;;
+    --no-split)   NO_SPLIT=true; shift ;;
+    --parallel)   PARALLEL="$2"; if [ "$PARALLEL" -gt 5 ]; then PARALLEL=5; fi; shift 2 ;;
     --*)          echo -e "${RED}알 수 없는 옵션: $1${NC}"; exit 1 ;;
     *)
       if   [ -z "$TOPIC" ]; then TOPIC="$1"
@@ -53,6 +57,8 @@ if [ -z "$TOPIC" ] && [ "$RUN_ONLY" = false ]; then
   echo "  ./ralph.sh --run 20"
   echo "  ./ralph.sh \"deep research\" --update        # 기존 주제 최신 정보로 업데이트"
   echo "  ./ralph.sh \"BERT\" --email your@email.com"
+  echo "  ./ralph.sh \"semiconductor\" --parallel 5    # MECE 분할 후 최대 5개 병렬"
+  echo "  ./ralph.sh \"semiconductor\" --no-split      # 분할 없이 단일 주제로 실행"
   echo ""
   exit 0
 fi
@@ -402,6 +408,307 @@ if [ -n "$TOPIC" ]; then
     *)         echo -e "${YELLOW}⚠️  queue 추가 중 오류. 계속 진행합니다.${NC}" ;;
   esac
   echo ""
+fi
+
+# ── MECE 주제 분할 + 병렬 실행 ─────────────────────────────────
+if [ -n "$TOPIC" ] && [ "$NO_SPLIT" = false ] && [ "$RUN_ONLY" = false ]; then
+  echo -e "${CYAN}=== MECE 주제 분할 ===${NC}"
+  echo ""
+
+  SUBTOPICS_JSON="subtopics.json"
+
+  # Phase 1: 재귀 분할 (트리 생성)
+  # subtopics.json 초기화
+  cat > "$SUBTOPICS_JSON" << 'SJEOF'
+{
+  "root": "",
+  "tree": {},
+  "leaves": []
+}
+SJEOF
+
+  # 재귀 분할 함수
+  split_topic_recursive() {
+    local CURRENT_TOPIC="$1"
+    local DEPTH="$2"
+    local PARENT_PATH="$3"  # 폴더 경로 (예: subtopics/semiconductor/fabrication)
+
+    # 깊이 상한 체크
+    if [ "$DEPTH" -ge 3 ]; then
+      echo -e "${YELLOW}  깊이 상한(3) 도달: \"$CURRENT_TOPIC\" → 리프 노드${NC}"
+      # 리프 노드로 등록
+      PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" "$CURRENT_TOPIC" "$PARENT_PATH" << 'LEAFEOF'
+import json, sys
+jf, topic, path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(jf, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['leaves'].append({"topic": topic, "path": path})
+with open(jf, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+LEAFEOF
+      return
+    fi
+
+    # Claude에게 분할 요청
+    local SPLIT_PROMPT
+    SPLIT_PROMPT=$(sed "s|{{TOPIC}}|${CURRENT_TOPIC}|g" "${PROMPTS_DIR}/split-topic.md")
+    local SPLIT_RESULT
+    SPLIT_RESULT=$(claude -p "$SPLIT_PROMPT" --output-format text 2>&1) || true
+
+    # JSON 배열 파싱
+    local SUBTOPICS
+    SUBTOPICS=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SPLIT_RESULT" 2>/dev/null << 'PARSEEOF'
+import json, sys, re
+raw = sys.argv[1]
+# JSON 배열 추출 (```json ... ``` 또는 순수 배열)
+m = re.search(r'\[.*?\]', raw, re.DOTALL)
+if m:
+    arr = json.loads(m.group())
+    if isinstance(arr, list):
+        for item in arr:
+            print(item)
+    else:
+        print("PARSE_ERROR")
+else:
+    print("PARSE_ERROR")
+PARSEEOF
+    ) || SUBTOPICS="PARSE_ERROR"
+
+    # 파싱 실패 → 분할 스킵
+    if [ "$SUBTOPICS" = "PARSE_ERROR" ] || [ -z "$SUBTOPICS" ]; then
+      echo -e "${YELLOW}  분할 스킵 (파싱 실패 또는 빈 응답): \"$CURRENT_TOPIC\"${NC}"
+      # 리프 노드로 등록
+      PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" "$CURRENT_TOPIC" "$PARENT_PATH" << 'LEAFEOF2'
+import json, sys
+jf, topic, path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(jf, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['leaves'].append({"topic": topic, "path": path})
+with open(jf, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+LEAFEOF2
+      return
+    fi
+
+    # 빈 배열 (구체적 주제) → 리프 노드
+    local LINE_COUNT
+    LINE_COUNT=$(echo "$SUBTOPICS" | grep -c "." || true)
+    if [ "$LINE_COUNT" -eq 0 ]; then
+      echo -e "${GREEN}  구체적 주제 → 리프 노드: \"$CURRENT_TOPIC\"${NC}"
+      PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" "$CURRENT_TOPIC" "$PARENT_PATH" << 'LEAFEOF3'
+import json, sys
+jf, topic, path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(jf, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['leaves'].append({"topic": topic, "path": path})
+with open(jf, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+LEAFEOF3
+      return
+    fi
+
+    # 서브토픽 있음 → 트리에 등록 + 폴더 생성 + 재귀
+    echo -e "${GREEN}  \"$CURRENT_TOPIC\" → ${LINE_COUNT}개 서브토픽 분할${NC}"
+
+    # 트리에 등록
+    PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" "$CURRENT_TOPIC" "$SUBTOPICS" << 'TREEEOF'
+import json, sys
+jf, topic = sys.argv[1], sys.argv[2]
+subs = sys.argv[3].strip().split('\n')
+with open(jf, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['tree'][topic] = [s.strip() for s in subs if s.strip()]
+with open(jf, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+TREEEOF
+
+    # 각 서브토픽에 대해 재귀 분할
+    while IFS= read -r sub; do
+      [ -z "$sub" ] && continue
+      # slug 생성
+      local SUB_SLUG
+      SUB_SLUG=$(echo "$sub" | tr '[:upper:]' '[:lower:]' | \
+                 sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | \
+                 sed 's/^-//' | sed 's/-$//' | cut -c1-60)
+      local SUB_PATH="${PARENT_PATH}/${SUB_SLUG}"
+      mkdir -p "subtopics${SUB_PATH}"
+      echo -e "  $( printf '%*s' $((DEPTH * 2)) '' )├── $sub"
+      split_topic_recursive "$sub" $((DEPTH + 1)) "$SUB_PATH"
+    done <<< "$SUBTOPICS"
+  }
+
+  # 루트 주제의 slug
+  ROOT_SLUG=$(echo "$TOPIC" | tr '[:upper:]' '[:lower:]' | \
+              sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | \
+              sed 's/^-//' | sed 's/-$//' | cut -c1-60)
+
+  # subtopics.json 루트 설정
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" "$TOPIC" << 'ROOTEOF'
+import json, sys
+jf, topic = sys.argv[1], sys.argv[2]
+with open(jf, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['root'] = topic
+with open(jf, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+ROOTEOF
+
+  # 재귀 분할 시작
+  split_topic_recursive "$TOPIC" 0 ""
+
+  # 리프 노드 개수 확인
+  LEAF_COUNT=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 -c "
+import json
+with open('$SUBTOPICS_JSON', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+print(len(data['leaves']))
+" 2>/dev/null) || LEAF_COUNT=0
+
+  echo ""
+
+  if [ "$LEAF_COUNT" -le 1 ]; then
+    # 분할 없음 또는 단일 리프 → 기존 흐름 유지
+    echo -e "${GREEN}✓ 분할 불필요 — 단일 주제로 진행${NC}"
+    report_step "mece-split" "SKIP" "구체적 주제, 분할 없음"
+    echo ""
+  else
+    # Phase 2: 리프 노드 병렬 실행
+    echo -e "${CYAN}=== 서브토픽 병렬 실행 (${LEAF_COUNT}개 리프, ${PARALLEL}개 동시) ===${NC}"
+    echo ""
+    report_step "mece-split" "OK" "${LEAF_COUNT}개 리프 노드 생성"
+
+    # 리프 노드 목록 추출
+    LEAF_LIST=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" << 'LLEOF'
+import json, sys
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    data = json.load(f)
+for leaf in data['leaves']:
+    print(leaf['topic'] + '|||' + leaf['path'])
+LLEOF
+    )
+
+    # 배치 병렬 실행
+    BATCH_NUM=0
+    RUNNING=0
+    PIDS=()
+    LEAF_TOPICS=()
+    LEAF_PATHS=()
+    COMPLETED=0
+    FAILED=0
+
+    while IFS= read -r leaf_line; do
+      [ -z "$leaf_line" ] && continue
+      LEAF_TOPIC="${leaf_line%%|||*}"
+      LEAF_PATH="${leaf_line##*|||}"
+      LEAF_DIR="subtopics${LEAF_PATH}"
+
+      # 서브토픽 폴더에서 독립 실행
+      echo -e "${BLUE}  ▶ 시작: \"$LEAF_TOPIC\" (${LEAF_DIR})${NC}"
+
+      (
+        cd "$LEAF_DIR"
+        # 서브토픽 폴더 초기화
+        mkdir -p docs/knowledge docs/reports docs/sources docs/research
+
+        # 독립 ralph.sh 실행 (--no-split로 재분할 방지)
+        bash "${SCRIPT_DIR}/ralph.sh" "$LEAF_TOPIC" --no-split --iterations "$MAX_ITERATIONS" \
+          ${UNPAYWALL_EMAIL:+--email "$UNPAYWALL_EMAIL"} \
+          > "ralph-output.log" 2>&1
+      ) &
+
+      PIDS+=($!)
+      LEAF_TOPICS+=("$LEAF_TOPIC")
+      LEAF_PATHS+=("$LEAF_DIR")
+      RUNNING=$((RUNNING + 1))
+
+      # 배치 대기: PARALLEL개 채워지면 wait
+      if [ "$RUNNING" -ge "$PARALLEL" ]; then
+        BATCH_NUM=$((BATCH_NUM + 1))
+        echo -e "${YELLOW}  ⏳ 배치 ${BATCH_NUM} 대기 (${RUNNING}개 실행 중)...${NC}"
+        for idx in "${!PIDS[@]}"; do
+          wait "${PIDS[$idx]}" 2>/dev/null
+          EXIT_CODE=$?
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo -e "${GREEN}  ✓ 완료: \"${LEAF_TOPICS[$idx]}\"${NC}"
+            COMPLETED=$((COMPLETED + 1))
+          else
+            echo -e "${RED}  ✗ 실패: \"${LEAF_TOPICS[$idx]}\" (exit ${EXIT_CODE})${NC}"
+            FAILED=$((FAILED + 1))
+          fi
+        done
+        PIDS=()
+        LEAF_TOPICS=()
+        LEAF_PATHS=()
+        RUNNING=0
+      fi
+    done <<< "$LEAF_LIST"
+
+    # 마지막 배치 대기
+    if [ "$RUNNING" -gt 0 ]; then
+      BATCH_NUM=$((BATCH_NUM + 1))
+      echo -e "${YELLOW}  ⏳ 배치 ${BATCH_NUM} 대기 (${RUNNING}개 실행 중)...${NC}"
+      for idx in "${!PIDS[@]}"; do
+        wait "${PIDS[$idx]}" 2>/dev/null
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" -eq 0 ]; then
+          echo -e "${GREEN}  ✓ 완료: \"${LEAF_TOPICS[$idx]}\"${NC}"
+          COMPLETED=$((COMPLETED + 1))
+        else
+          echo -e "${RED}  ✗ 실패: \"${LEAF_TOPICS[$idx]}\" (exit ${EXIT_CODE})${NC}"
+          FAILED=$((FAILED + 1))
+        fi
+      done
+    fi
+
+    echo ""
+    echo -e "${GREEN}=== 병렬 실행 완료: ${COMPLETED} 성공, ${FAILED} 실패 ===${NC}"
+    report_step "parallel-exec" "OK" "${COMPLETED}/${LEAF_COUNT} 완료, ${FAILED} 실패"
+    echo ""
+
+    # Phase 3: 결과 합침
+    echo -e "${CYAN}=== 서브토픽 결과 합침 ===${NC}"
+    echo ""
+
+    MERGE_COUNT=0
+    # 리프 노드 다시 순회하며 docs/ 복사
+    LEAF_LIST2=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$SUBTOPICS_JSON" << 'LL2EOF'
+import json, sys
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    data = json.load(f)
+for leaf in data['leaves']:
+    print(leaf['path'])
+LL2EOF
+    )
+
+    while IFS= read -r leaf_path; do
+      [ -z "$leaf_path" ] && continue
+      LEAF_DIR="subtopics${leaf_path}"
+
+      # knowledge, reports 복사 (sources, research는 제외 — 용량 대비 가치 낮음)
+      if [ -d "${LEAF_DIR}/docs/knowledge" ]; then
+        cp -n "${LEAF_DIR}/docs/knowledge/"*.md docs/knowledge/ 2>/dev/null && \
+          MERGE_COUNT=$((MERGE_COUNT + 1)) || true
+      fi
+      if [ -d "${LEAF_DIR}/docs/reports" ]; then
+        cp -n "${LEAF_DIR}/docs/reports/"*.md docs/reports/ 2>/dev/null || true
+      fi
+      # research JSON도 합침 (캐시 재활용)
+      if [ -d "${LEAF_DIR}/docs/research" ]; then
+        cp -n "${LEAF_DIR}/docs/research/"*.json docs/research/ 2>/dev/null || true
+      fi
+    done <<< "$LEAF_LIST2"
+
+    echo -e "${GREEN}✓ ${MERGE_COUNT}개 서브토픽 결과 → 부모 docs/ 병합 완료${NC}"
+    report_step "merge-results" "OK" "${MERGE_COUNT}개 서브토픽 결과 병합"
+    echo ""
+
+    git_commit "mece: ${TOPIC} — ${LEAF_COUNT}개 서브토픽 분할 + 병렬 실행 완료"
+    git_push
+    report_step "git" "OK" "커밋 & 푸시"
+
+    print_report
+    exit 0
+  fi
 fi
 
 # ── 학술 논문 자동 탐색 (research-engine) ─────────────────────

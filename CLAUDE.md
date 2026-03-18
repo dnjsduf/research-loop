@@ -73,6 +73,46 @@ flowchart TD
     DONE --> PUSH
 ```
 
+## MECE 분할 + 병렬 실행
+
+```mermaid
+flowchart TD
+    T["./ralph.sh '넓은 주제'"] --> S1[Phase 1: 순차 분할]
+
+    subgraph P1 ["Phase 1 — 트리 생성"]
+        S1 --> CL1["Claude split-topic.md"]
+        CL1 -->|"빈 배열"| LEAF1[리프 노드 등록]
+        CL1 -->|"서브토픽 배열"| FOLD[폴더 생성]
+        FOLD --> REC["재귀 분할<br/>(depth+1, 최대 3)"]
+        REC --> CL1
+    end
+
+    LEAF1 --> ST["subtopics.json<br/>전체 트리 + 리프 목록"]
+    REC --> ST
+
+    ST --> P2[Phase 2: 병렬 실행]
+    subgraph P2S ["Phase 2 — 리프 노드 실행"]
+        P2 --> B1["배치 1<br/>N개 동시"]
+        P2 --> B2["배치 2<br/>N개 동시"]
+        P2 --> BN["배치 ..."]
+        B1 & B2 & BN --> EACH["각 폴더에서<br/>ralph.sh --no-split"]
+    end
+
+    EACH --> P3[Phase 3: 결과 합침]
+    P3 --> MERGE["서브토픽 docs/ →<br/>부모 docs/ 복사"]
+    MERGE --> GIT[git commit + push]
+```
+
+**플래그:**
+- `--no-split`: 분할 비활성화 (서브토픽 독립 실행 시 자동 부여)
+- `--parallel N`: 동시 실행 수 (기본 3, 최대 5)
+
+**안전장치:**
+- 깊이 상한 3 (depth ≥ 3이면 무조건 리프)
+- Claude 분할 실패/파싱 실패 → 분할 스킵, 기존 흐름 유지
+- 서브토픽별 독립 폴더 → queue.md 충돌 없음
+- 동시 실행 최대 5개 → API rate limit 완화
+
 ## --update 모드
 
 ```mermaid
@@ -124,6 +164,7 @@ flowchart LR
         verify-knowledge.md
         verify-report.md
         update.md
+        split-topic.md
     end
 
     subgraph ref["ref/ (참조 문서)"]
@@ -137,6 +178,12 @@ flowchart LR
         sources/"PDF 로컬만"
         knowledge/"AI 지식DB"
         reports/"사람용 보고서"
+    end
+
+    subgraph split["subtopics/ (MECE 분할 시)"]
+        subtopics.json
+        sub-topic-1/
+        sub-topic-2/
     end
 ```
 
@@ -158,7 +205,9 @@ flowchart LR
 
 ## 실행
 ```bash
-./ralph.sh "주제" --iterations 3   # 새 리서치
-./ralph.sh "주제" --update          # 최신화
-./ralph.sh --run 5                  # queue 이어서
+./ralph.sh "주제" --iterations 3      # 새 리서치
+./ralph.sh "주제" --update             # 최신화
+./ralph.sh --run 5                     # queue 이어서
+./ralph.sh "넓은 주제" --parallel 5    # MECE 분할 + 병렬 (최대 5)
+./ralph.sh "좁은 주제" --no-split      # 분할 비활성화
 ```
