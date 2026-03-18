@@ -244,6 +244,7 @@ if [ "$UPDATE_MODE" = true ] && [ -n "$TOPIC" ]; then
 4. update.md 의 병합 정책에 따라 기존 문서를 최신화해.
 5. verify-knowledge.md 로 검증하고 결과를 출력해.
 6. verify-report.md 로 검증하고 결과를 출력해.
+7. queue.md에서 source_of: "${UPDATE_SLUG}" 인 pending 항목이 있으면 모두 status: done으로 변경해 (종합 문서에 반영됐으므로).
 
 ## 출력
 마지막에 반드시 아래 형식으로 요약:
@@ -363,12 +364,61 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     run_fetch
   fi
 
-  # ── PDF 수집: docs/sources/ 에서 사용 가능한 PDF 모두 탐색 ──
+  # ── PDF 수집: research JSON 랭킹 순으로 매칭 ──────────────
   FILE_ARGS=""
   PDF_COUNT=0
 
-  # 1. docs/sources/ 폴더의 PDF (종합 리서치용)
-  if [ -d "docs/sources" ]; then
+  # research JSON에서 랭킹 순으로 PDF 매칭
+  if [ -d "docs/sources" ] && [ -d "docs/research" ]; then
+    RANKED_PDFS=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - << 'RPYEOF' 2>/dev/null || true
+import json, glob, os, re, sys
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+# 모든 research JSON에서 랭킹 순 제목 추출
+titles = []
+for jf in sorted(glob.glob("docs/research/*.json"), key=os.path.getmtime, reverse=True):
+    try:
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for p in data.get('papers', []):
+            titles.append(p.get('title', ''))
+    except:
+        continue
+
+# docs/sources/의 PDF를 랭킹 순으로 매칭
+pdfs = glob.glob("docs/sources/*.pdf")
+matched = []
+for title in titles:
+    slug = re.sub(r'[^a-z0-9]', '-', title.lower())
+    slug = re.sub(r'-+', '-', slug).strip('-')[:60]
+    for pdf in pdfs:
+        fname = os.path.splitext(os.path.basename(pdf))[0]
+        if fname == slug or slug.startswith(fname) or fname.startswith(slug[:30]):
+            if pdf not in matched:
+                matched.append(pdf)
+            break
+
+# 매칭 안 된 PDF도 뒤에 추가
+for pdf in pdfs:
+    if pdf not in matched:
+        matched.append(pdf)
+
+# 최대 5개 출력
+for pdf in matched[:5]:
+    print(pdf)
+RPYEOF
+    )
+
+    while IFS= read -r pdf_path; do
+      if [ -n "$pdf_path" ] && [ -f "$pdf_path" ]; then
+        FILE_ARGS="$FILE_ARGS --file \"$pdf_path\""
+        PDF_COUNT=$((PDF_COUNT + 1))
+      fi
+    done <<< "$RANKED_PDFS"
+  fi
+
+  # 매칭 실패 시 폴백: docs/sources/ 전체에서 최대 5개
+  if [ "$PDF_COUNT" -eq 0 ] && [ -d "docs/sources" ]; then
     while IFS= read -r -d '' f; do
       if [ "$PDF_COUNT" -lt 5 ]; then
         FILE_ARGS="$FILE_ARGS --file \"$f\""

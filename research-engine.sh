@@ -408,16 +408,25 @@ def search_github_repos(papers):
     """Papers With Code API로 논문에 연결된 GitHub 레포 탐색"""
     print("🔧 공개 코드 탐색 중...")
     found = 0
+    consecutive_fails = 0
+
     for p in papers[:15]:  # 상위 15개만
         title = p.get('title', '')
         if not title:
             continue
 
+        # 연속 3회 실패하면 PwC API 문제로 판단하고 중단
+        if consecutive_fails >= 3:
+            print("  PwC API 불안정 — 탐색 중단")
+            break
+
         # Papers With Code API 검색
         pwc_url = f"https://paperswithcode.com/api/v1/papers/?q={quote(title[:80])}"
         data = api_get(pwc_url, timeout=10)
         if not data or 'results' not in data or not data['results']:
+            consecutive_fails += 1
             continue
+        consecutive_fails = 0  # 성공하면 리셋
 
         # 첫 번째 결과에서 레포 정보
         paper_id = data['results'][0].get('id', '')
@@ -691,36 +700,44 @@ def cluster_papers(papers):
     return clusters
 
 def run_search_round(keywords, per_api, apis_used_ref, all_papers_ref):
-    """1회 검색 라운드 실행 (adaptive_sleep이 API 호출 간격 자동 조절)"""
+    """1회 검색 라운드 실행. SS 실패 시 OA/CR 검색량 보상."""
     round_papers = []
+    ss_failed = False
 
     for kw in keywords:
         print(f"  [{kw}]", end="", flush=True)
 
-        results = search_openalex(kw, per_page=per_api)
+        # Semantic Scholar 먼저 시도 (실패 여부 확인용)
+        adaptive_sleep(0.8)
+        ss_results = search_semantic_scholar(kw, limit=per_api)
+        if ss_results:
+            round_papers.extend(ss_results)
+            if 'semantic_scholar' not in apis_used_ref:
+                apis_used_ref.append('semantic_scholar')
+        else:
+            ss_failed = True
+
+        # SS 실패 시 OA/CR 검색량 2배로 보상
+        oa_limit = per_api * 2 if ss_failed else per_api
+        cr_limit = per_api * 2 if ss_failed else per_api
+
+        results = search_openalex(kw, per_page=oa_limit)
         if results:
             round_papers.extend(results)
             if 'openalex' not in apis_used_ref:
                 apis_used_ref.append('openalex')
         oa_count = len(results)
 
-        # Semantic Scholar는 레이트 리밋이 빡빡하므로 최소 0.8초
-        adaptive_sleep(0.8)
-        results = search_semantic_scholar(kw, limit=per_api)
-        if results:
-            round_papers.extend(results)
-            if 'semantic_scholar' not in apis_used_ref:
-                apis_used_ref.append('semantic_scholar')
-        ss_count = len(results)
-
-        results = search_crossref(kw, rows=per_api)
+        results = search_crossref(kw, rows=cr_limit)
         if results:
             round_papers.extend(results)
             if 'crossref' not in apis_used_ref:
                 apis_used_ref.append('crossref')
         cr_count = len(results)
 
-        print(f" OA:{oa_count} SS:{ss_count} CR:{cr_count}")
+        ss_count = len(ss_results) if ss_results else 0
+        compensated = " [보상↑]" if ss_failed and ss_count == 0 else ""
+        print(f" OA:{oa_count} SS:{ss_count} CR:{cr_count}{compensated}")
 
     all_papers_ref.extend(round_papers)
     return round_papers
@@ -791,6 +808,32 @@ for hop in range(1, num_hops + 1):
     print()
 
 total_raw = len(all_papers)
+
+# 결과 0개 조기 경고
+if total_raw == 0:
+    print()
+    print("⚠️ 논문 0개 수집 — 모든 API 실패 (네트워크 확인 필요)")
+    print("   Claude가 웹 검색 전용 모드로 진행합니다.")
+    print()
+    # 빈 JSON 저장
+    output = {
+        'query': topic, 'slug': slug,
+        'searched_at': datetime.now().isoformat(), 'version': 2,
+        'keyword_variants': all_keywords_used, 'apis_used': [],
+        'total_raw': 0, 'total_deduped': 0, 'total_ranked': 0,
+        'coverage_map': {}, 'papers': [],
+        'warning': 'all_apis_failed'
+    }
+    json_path = f"docs/research/{slug}.json"
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+    print(f"RESEARCH_COMPLETE")
+    print(f"SLUG={slug}")
+    print(f"PAPERS_FOUND=0")
+    print(f"PAPERS_QUEUED=0")
+    print(f"JSON_PATH={json_path}")
+    print(f"WARNING=all_apis_failed")
+    os._exit(0)
 
 # 인용 체인 탐색 (depth >= 1)
 if depth >= 1 and all_papers:

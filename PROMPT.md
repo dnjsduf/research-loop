@@ -36,8 +36,14 @@
 
 **모드 B — 점검/보강 (기존 주제)**
 아래 조건이면 모드 B:
-- `priority: 1`인 항목이 모두 done이거나, knowledge 파일이 이미 존재
+- `priority: 1`인 항목이 모두 done이고, knowledge 파일이 이미 존재
 - 또는 `status: in_progress`이면서 `phase: review`인 항목이 있음
+
+**모드 C — 잔여 항목 일괄 정리**
+아래 조건이면 모드 C:
+- priority:1은 done인데, priority:2 이상의 pending 항목이 남아있음
+- 이 항목들은 종합 리서치(모드 A)에서 소스로 활용되었어야 하지만, 개별 status가 done으로 처리 안 된 경우
+- **처리:** 남은 pending 항목 중 `source_of`가 done 항목의 slug인 것들을 모두 `status: done`으로 일괄 변경. 이미 종합 문서에 포함되었으므로 개별 처리 불필요.
 
 **종료 조건:**
 - pending/in_progress 항목이 하나도 없으면 → `<promise>COMPLETE</promise>` 출력하고 종료
@@ -341,6 +347,25 @@ Step 5에서 두 파일이 이미 존재했던 경우에만 실행.
 - **파일 수정은 변경 부분만 정밀하게.** 전체 덮어쓰기 금지.
 - **queue 중복 체크는 title과 url 두 가지 모두 확인.**
 - **네트워크 오류 시 limited로 강등 후 계속 진행.** 루프 중단 금지.
+
+### queue.md 수정 형식 (필수 준수)
+queue.md를 Edit할 때 반드시 아래 YAML 형식을 지켜. 형식이 틀리면 queue-util.py 파싱이 깨짐.
+```yaml
+  - title: "논문 제목 (따옴표 필수, 내부 따옴표는 \" 이스케이프)"
+    slug: "slug-name"
+    url: "https://..."
+    local_path: null
+    access_type: url
+    pre_research: pending
+    fetch_requested: false
+    priority: 1
+    status: pending
+    source_of: null
+    added: "YYYY-MM-DD"
+```
+- **들여쓰기:** 각 항목은 `  - title:` (스페이스 2개 + 하이픈), 하위 필드는 `    ` (스페이스 4개)
+- **따옴표:** title, slug, url, added 값은 반드시 `"` 로 감쌀 것
+- **null:** 값이 없으면 따옴표 없이 `null`
 - **fetch-signal.txt는 Step 3에서만 생성하고, ralph.sh가 다운로드 후 삭제한다.** 직접 삭제하지 마.
 
 ---
