@@ -355,38 +355,31 @@ download_one() {
   fi
 }
 
+# 항목 목록을 임시 파일로 저장 (파이프 서브쉘 문제 회피)
+ITEM_LIST_FILE=$(mktemp)
 echo "$ITEMS" | python3 -c "
 import json, sys
 items = json.load(sys.stdin)
-for i, item in enumerate(items):
-    print(f'ITEM_START')
-    print(f'TITLE={item[\"title\"]}')
-    print(f'URL={item[\"url\"]}')
-    print(f'ITEM_END')
-" | while IFS= read -r line; do
-  if [[ "$line" == "ITEM_START" ]]; then
-    TITLE=""
-    URL=""
-  elif [[ "$line" == TITLE=* ]]; then
-    TITLE="${line#TITLE=}"
-  elif [[ "$line" == URL=* ]]; then
-    URL="${line#URL=}"
-  elif [[ "$line" == "ITEM_END" ]]; then
-    # 병렬 다운로드: 최대 MAX_PARALLEL개 동시 실행
-    while [ "$(jobs -r | wc -l)" -ge "$MAX_PARALLEL" ]; do
-      wait -n 2>/dev/null || true
-    done
+for item in items:
+    # 탭으로 구분: title\turl
+    title = item['title'].replace('\t', ' ')
+    url = item['url'].replace('\t', ' ')
+    print(f'{title}\t{url}')
+" > "$ITEM_LIST_FILE"
 
-    download_one "$TITLE" "$URL" &
-  fi
-done
+# 순차 다운로드 (함수 상속 문제 없음, arXiv는 충분히 빠름)
+while IFS=$'\t' read -r TITLE URL; do
+  [ -z "$TITLE" ] && continue
+  download_one "$TITLE" "$URL"
+done < "$ITEM_LIST_FILE"
 
-# 남은 백그라운드 작업 대기
-wait 2>/dev/null || true
+rm -f "$ITEM_LIST_FILE"
 
 # 접근 불가 논문 수 출력
-INACCESSIBLE_COUNT=$(grep -c "^\[" "$INACCESSIBLE_FILE" 2>/dev/null || echo "0")
-if [ "$INACCESSIBLE_COUNT" -gt 0 ]; then
+INACCESSIBLE_COUNT=$(grep -c "^제목:" "$INACCESSIBLE_FILE" 2>/dev/null)
+INACCESSIBLE_COUNT=${INACCESSIBLE_COUNT:-0}
+INACCESSIBLE_COUNT=${INACCESSIBLE_COUNT// /}
+if [ "$INACCESSIBLE_COUNT" -gt 0 ] 2>/dev/null; then
   echo -e "${YELLOW}⚠️ 접근 불가 논문: ${INACCESSIBLE_COUNT}개 — ${INACCESSIBLE_FILE} 참조${NC}"
   echo ""
 fi
