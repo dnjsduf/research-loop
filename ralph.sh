@@ -109,6 +109,69 @@ fi
 # 디렉토리 초기화
 mkdir -p docs/knowledge docs/reports docs/sources docs/research
 
+# ── 파이프라인 리포트 시스템 ──────────────────────────────────
+REPORT_FILE="pipeline-report.txt"
+
+init_report() {
+  cat > "$REPORT_FILE" << REOF
+=== Pipeline Report ===
+시작: $(date '+%Y-%m-%d %H:%M:%S')
+주제: ${TOPIC:-"--run 모드"}
+모드: ${UPDATE_MODE:+UPDATE}${RUN_ONLY:+RUN}
+
+REOF
+}
+
+# 기능별 성공/실패 기록
+report_step() {
+  local STEP="$1"
+  local STATUS="$2"  # OK / FAIL / SKIP / WARN
+  local DETAIL="$3"
+  local ICON=""
+  case "$STATUS" in
+    OK)   ICON="✅" ;;
+    FAIL) ICON="❌" ;;
+    SKIP) ICON="⏭️" ;;
+    WARN) ICON="⚠️" ;;
+  esac
+  echo "[$ICON $STATUS] $STEP — $DETAIL" >> "$REPORT_FILE"
+  # FAIL이면 터미널에도 즉시 출력
+  if [ "$STATUS" = "FAIL" ]; then
+    echo -e "${RED}[$STATUS] $STEP — $DETAIL${NC}"
+  fi
+}
+
+# 최종 리포트 출력
+print_report() {
+  echo "" >> "$REPORT_FILE"
+  echo "종료: $(date '+%Y-%m-%d %H:%M:%S')" >> "$REPORT_FILE"
+
+  # docs/ 파일 수 카운트
+  local K_COUNT R_COUNT S_COUNT PDF_COUNT INAC_COUNT
+  K_COUNT=$(find docs/knowledge -name "*.md" 2>/dev/null | wc -l)
+  R_COUNT=$(find docs/reports -name "*.md" 2>/dev/null | wc -l)
+  S_COUNT=$(find docs/sources -name "*.pdf" 2>/dev/null | wc -l)
+  PDF_COUNT=${S_COUNT// /}
+  INAC_COUNT=$(grep -c "^제목:" inaccessible-papers.txt 2>/dev/null || true)
+  INAC_COUNT=${INAC_COUNT:-0}
+  INAC_COUNT=${INAC_COUNT// /}
+
+  {
+    echo ""
+    echo "=== 결과 요약 ==="
+    echo "knowledge 문서: ${K_COUNT}개"
+    echo "report 문서:    ${R_COUNT}개"
+    echo "다운로드 PDF:   ${PDF_COUNT}개"
+    echo "접근 불가 논문: ${INAC_COUNT}개"
+  } >> "$REPORT_FILE"
+
+  echo ""
+  echo -e "${CYAN}=== 파이프라인 리포트 ===${NC}"
+  cat "$REPORT_FILE"
+  echo -e "${CYAN}=========================${NC}"
+  echo ""
+}
+
 # ── Git 자동 초기화 ───────────────────────────────────────────
 init_git() {
   if [ ! -d ".git" ]; then
@@ -192,6 +255,8 @@ get_current_item_info() {
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}   Ralph Knowledge Pipeline${NC}"
 echo -e "${BLUE}======================================${NC}"
+
+init_report
 echo ""
 
 # ── UPDATE 모드 ───────────────────────────────────────────────
@@ -224,12 +289,25 @@ if [ "$UPDATE_MODE" = true ] && [ -n "$TOPIC" ]; then
   echo ""
   RESEARCH_RESULT=$(bash research-engine.sh "$TOPIC" --max-results 20 --depth 1 --hops 2 2>&1) || true
   echo "$RESEARCH_RESULT"
+  if echo "$RESEARCH_RESULT" | grep -q "RESEARCH_COMPLETE"; then
+    FOUND=$(echo "$RESEARCH_RESULT" | grep "^PAPERS_FOUND=" | cut -d= -f2)
+    report_step "research-engine" "OK" "${FOUND}개 논문 발견"
+  else
+    report_step "research-engine" "FAIL" "탐색 실패 또는 결과 없음"
+  fi
   echo ""
 
   # 1.5. PDF 다운로드
   if [ -f "fetch-sources.sh" ]; then
     echo -e "${CYAN}=== PDF 다운로드 ===${NC}"
     bash fetch-sources.sh || true
+    DL_COUNT=$(find docs/sources -name "*.pdf" 2>/dev/null | wc -l)
+    DL_COUNT=${DL_COUNT// /}
+    if [ "$DL_COUNT" -gt 0 ] 2>/dev/null; then
+      report_step "fetch-sources" "OK" "PDF ${DL_COUNT}개 다운로드"
+    else
+      report_step "fetch-sources" "WARN" "PDF 0개 — 초록 기반 진행"
+    fi
     echo ""
   fi
 
@@ -285,13 +363,17 @@ UEOF
   echo "$result"
   echo ""
 
+  if echo "$result" | grep -q "업데이트 완료"; then
+    report_step "claude-update" "OK" "문서 업데이트 완료"
+  else
+    report_step "claude-update" "WARN" "업데이트 결과 불명확"
+  fi
+
   git_commit "update: ${UPDATE_SLUG} 최신화 완료"
   git_push
+  report_step "git" "OK" "커밋 & 푸시"
 
-  echo -e "${GREEN}======================================${NC}"
-  echo -e "${GREEN}   UPDATE 완료: ${UPDATE_SLUG}${NC}"
-  echo -e "${GREEN}   ✓ Git 커밋 & 푸시 완료${NC}"
-  echo -e "${GREEN}======================================${NC}"
+  print_report
   exit 0
 fi
 
@@ -319,11 +401,14 @@ if [ -n "$TOPIC" ] && [ -f "research-engine.sh" ]; then
   echo "$RESEARCH_RESULT"
 
   if echo "$RESEARCH_RESULT" | grep -q "RESEARCH_COMPLETE"; then
+    PAPERS_FOUND=$(echo "$RESEARCH_RESULT" | grep "^PAPERS_FOUND=" | cut -d= -f2)
     PAPERS_QUEUED=$(echo "$RESEARCH_RESULT" | grep "^PAPERS_QUEUED=" | cut -d= -f2)
     echo ""
     echo -e "${GREEN}✓ 논문 탐색 완료: ${PAPERS_QUEUED}개 논문 queue에 추가${NC}"
+    report_step "research-engine" "OK" "${PAPERS_FOUND}개 발견, ${PAPERS_QUEUED}개 queue 추가"
   else
     echo -e "${YELLOW}⚠️ 논문 탐색 실패 또는 결과 없음. 계속 진행합니다.${NC}"
+    report_step "research-engine" "FAIL" "탐색 실패 또는 결과 없음"
   fi
   echo ""
 fi
@@ -332,10 +417,18 @@ fi
 if [ -f "fetch-sources.sh" ]; then
   echo -e "${CYAN}=== PDF 다운로드 시작 ===${NC}"
   echo ""
+  PDF_BEFORE=$(find docs/sources -name "*.pdf" 2>/dev/null | wc -l)
   if [ -n "$UNPAYWALL_EMAIL" ]; then
     bash fetch-sources.sh --email "$UNPAYWALL_EMAIL" || true
   else
     bash fetch-sources.sh || true
+  fi
+  PDF_AFTER=$(find docs/sources -name "*.pdf" 2>/dev/null | wc -l)
+  PDF_NEW=$((${PDF_AFTER// /} - ${PDF_BEFORE// /}))
+  if [ "$PDF_NEW" -gt 0 ] 2>/dev/null; then
+    report_step "fetch-sources" "OK" "PDF ${PDF_NEW}개 새로 다운로드 (총 ${PDF_AFTER// /}개)"
+  else
+    report_step "fetch-sources" "WARN" "새 PDF 0개 다운로드"
   fi
   echo ""
 fi
@@ -446,11 +539,13 @@ RPYEOF
     fi
   fi
 
-  # PDF 첨부 상태 출력
+  # PDF 첨부 상태 출력 + 리포트
   if [ "$PDF_COUNT" -gt 0 ]; then
     echo -e "${GREEN}📄 PDF ${PDF_COUNT}개 첨부${NC}"
+    report_step "pdf-attach" "OK" "${PDF_COUNT}개 PDF를 Claude에 첨부"
   else
     echo -e "${YELLOW}📄 PDF 없음 — 웹 검색 + 초록 기반으로 진행${NC}"
+    report_step "pdf-attach" "WARN" "PDF 0개 — 초록+웹 기반"
   fi
   echo ""
 
@@ -514,13 +609,23 @@ RPYEOF
     echo "  activity.md      — 실행 로그"
     echo "  queue.md         — 처리 이력"
     echo ""
+    report_step "claude-iter-${i}" "OK" "COMPLETE 신호 수신"
+    report_step "git" "OK" "커밋 & 푸시"
     git_commit "complete: iteration ${i} — 전체 완료"
     git_push
-    echo -e "${GREEN}✓ Git 커밋 & 푸시 완료${NC}"
+    print_report
     exit 0
   fi
 
-  # iteration 완료 후 자동 커밋
+  # Claude 결과에서 verify 점수 추출
+  K_SCORE=$(echo "$result" | grep -oE 'knowledge:? (verify )?[0-9]+' | grep -oE '[0-9]+' | tail -1)
+  R_SCORE=$(echo "$result" | grep -oE 'report:? (verify )?[0-9]+' | grep -oE '[0-9]+' | tail -1)
+  if [ -n "$K_SCORE" ]; then
+    report_step "claude-iter-${i}" "OK" "knowledge:${K_SCORE} report:${R_SCORE:-?}"
+  else
+    report_step "claude-iter-${i}" "WARN" "완료했으나 점수 추출 불가"
+  fi
+
   git_commit "iteration ${i}: ${TOPIC:-queue} 처리"
 
   echo -e "${YELLOW}--- Iteration $i 완료 ---${NC}"
@@ -530,10 +635,11 @@ done
 # ── 최대 반복 도달 ───────────────────────────────────────────
 echo ""
 echo -e "${RED}최대 반복 횟수 도달 ($MAX_ITERATIONS)${NC}"
-echo ""
+report_step "max-iterations" "WARN" "${MAX_ITERATIONS}회 도달, pending 남아있을 수 있음"
 git_commit "session: ${MAX_ITERATIONS} iterations 완료"
 git_push
-echo -e "${GREEN}✓ Git 커밋 & 푸시 완료${NC}"
+report_step "git" "OK" "커밋 & 푸시"
+print_report
 echo ""
 echo "남은 항목이 있으면:"
 echo "  ./ralph.sh --run 20"
