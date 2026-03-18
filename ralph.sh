@@ -303,8 +303,20 @@ if [ -n "$TOPIC" ] && [ -f "research-engine.sh" ]; then
   echo ""
 fi
 
-# research-engine 완료 후 커밋
-git_commit "research: ${TOPIC:-queue} — 논문 탐색 완료"
+# ── PDF 자동 다운로드 ─────────────────────────────────────────
+if [ -f "fetch-sources.sh" ]; then
+  echo -e "${CYAN}=== PDF 다운로드 시작 ===${NC}"
+  echo ""
+  if [ -n "$UNPAYWALL_EMAIL" ]; then
+    bash fetch-sources.sh --email "$UNPAYWALL_EMAIL" || true
+  else
+    bash fetch-sources.sh || true
+  fi
+  echo ""
+fi
+
+# research-engine + fetch 완료 후 커밋
+git_commit "research: ${TOPIC:-queue} — 논문 탐색 + PDF 다운로드"
 
 echo -e "최대 반복 횟수: ${GREEN}$MAX_ITERATIONS${NC}"
 echo ""
@@ -327,39 +339,50 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     run_fetch
   fi
 
-  # 현재 처리 대상의 PDF 경로 또는 폴더 확인
-  # queue.md 1회만 읽어서 local_path + pdf_dir 동시 추출
-  ITEM_INFO=$(get_current_item_info) || ITEM_INFO=$'\n'
-  CURRENT_PDF=$(echo "$ITEM_INFO" | sed -n '1p')
-  CURRENT_PDF_DIR=$(echo "$ITEM_INFO" | sed -n '2p')
+  # ── PDF 수집: docs/sources/ 에서 사용 가능한 PDF 모두 탐색 ──
+  FILE_ARGS=""
+  PDF_COUNT=0
 
-  # Claude 실행 — pdf_dir(카테고리 폴더) 또는 단일 PDF 첨부
-  if [ -n "$CURRENT_PDF_DIR" ] && [ -d "$CURRENT_PDF_DIR" ]; then
-    # 카테고리 폴더에서 PDF 최대 5개 첨부 (토큰 제한 고려)
-    echo -e "${GREEN}📁 카테고리 폴더: $CURRENT_PDF_DIR${NC}"
-    PDF_FILES=()
+  # 1. docs/sources/ 폴더의 PDF (종합 리서치용)
+  if [ -d "docs/sources" ]; then
     while IFS= read -r -d '' f; do
-      PDF_FILES+=("$f")
-    done < <(find "$CURRENT_PDF_DIR" -name "*.pdf" -print0 2>/dev/null | head -c 999999)
-    PDF_COUNT=${#PDF_FILES[@]}
-    echo -e "${GREEN}   PDF ${PDF_COUNT}개 발견${NC}"
-    echo ""
+      if [ "$PDF_COUNT" -lt 5 ]; then
+        FILE_ARGS="$FILE_ARGS --file \"$f\""
+        PDF_COUNT=$((PDF_COUNT + 1))
+      fi
+    done < <(find "docs/sources" -name "*.pdf" -print0 2>/dev/null)
+  fi
 
-    # --file 옵션 빌드 (최대 5개)
-    FILE_ARGS=""
-    for ((j=0; j<PDF_COUNT && j<5; j++)); do
-      FILE_ARGS="$FILE_ARGS --file \"${PDF_FILES[$j]}\""
-    done
+  # 2. 개별 항목의 local_path 또는 pdf_dir (기존 호환)
+  if [ "$PDF_COUNT" -eq 0 ]; then
+    ITEM_INFO=$(get_current_item_info) || ITEM_INFO=$'\n'
+    CURRENT_PDF=$(echo "$ITEM_INFO" | sed -n '1p')
+    CURRENT_PDF_DIR=$(echo "$ITEM_INFO" | sed -n '2p')
 
+    if [ -n "$CURRENT_PDF_DIR" ] && [ -d "$CURRENT_PDF_DIR" ]; then
+      while IFS= read -r -d '' f; do
+        if [ "$PDF_COUNT" -lt 5 ]; then
+          FILE_ARGS="$FILE_ARGS --file \"$f\""
+          PDF_COUNT=$((PDF_COUNT + 1))
+        fi
+      done < <(find "$CURRENT_PDF_DIR" -name "*.pdf" -print0 2>/dev/null)
+    elif [ -n "$CURRENT_PDF" ] && [ -f "$CURRENT_PDF" ]; then
+      FILE_ARGS="--file \"$CURRENT_PDF\""
+      PDF_COUNT=1
+    fi
+  fi
+
+  # PDF 첨부 상태 출력
+  if [ "$PDF_COUNT" -gt 0 ]; then
+    echo -e "${GREEN}📄 PDF ${PDF_COUNT}개 첨부${NC}"
+  else
+    echo -e "${YELLOW}📄 PDF 없음 — 웹 검색 + 초록 기반으로 진행${NC}"
+  fi
+  echo ""
+
+  # Claude 실행
+  if [ "$PDF_COUNT" -gt 0 ]; then
     result=$(eval claude -p "\"$(cat PROMPT.md)\"" $FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
-
-  elif [ -n "$CURRENT_PDF" ] && [ -f "$CURRENT_PDF" ]; then
-    echo -e "${GREEN}📄 PDF 첨부: $CURRENT_PDF${NC}"
-    echo ""
-    result=$(claude -p "$(cat PROMPT.md)" \
-      --file "$CURRENT_PDF" \
-      --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
-      --output-format text 2>&1) || true
   else
     result=$(claude -p "$(cat PROMPT.md)" \
       --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
