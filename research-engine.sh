@@ -438,63 +438,56 @@ def fetch_citation_chain(paper_id, direction='references', limit=10):
 
     return papers
 
-# ── Stage 3.5: GitHub/공개 코드 탐색 (Papers With Code API) ───
+# ── Stage 3.5: GitHub 코드 탐색 (GitHub Search API) ──────────
 
 def search_github_repos(papers):
-    """Papers With Code API로 논문에 연결된 GitHub 레포 탐색"""
-    print("🔧 공개 코드 탐색 중...")
+    """GitHub Search API로 논문 제목과 매칭되는 레포 탐색"""
+    print("🔧 GitHub 코드 탐색 중...")
     found = 0
-    consecutive_fails = 0
 
-    for p in papers[:15]:  # 상위 15개만
+    for p in papers[:10]:  # 상위 10개만
         title = p.get('title', '')
         if not title:
             continue
 
-        # 연속 3회 실패하면 PwC API 문제로 판단하고 중단
-        if consecutive_fails >= 3:
-            print("  PwC API 불안정 — 탐색 중단")
-            break
+        # GitHub Search API (인증 없이 10req/min)
+        query = quote(f'{title[:60]} paper')
+        gh_url = f"https://api.github.com/search/repositories?q={query}&sort=stars&per_page=3"
+        adaptive_sleep(6.5)  # GitHub unauthenticated: 10 req/min
+        data = api_get(gh_url, timeout=10)
 
-        # Papers With Code API 검색
-        pwc_url = f"https://paperswithcode.com/api/v1/papers/?q={quote(title[:80])}"
-        data = api_get(pwc_url, timeout=10)
-        if not data or 'results' not in data or not data['results']:
-            consecutive_fails += 1
-            continue
-        consecutive_fails = 0  # 성공하면 리셋
-
-        # 첫 번째 결과에서 레포 정보
-        paper_id = data['results'][0].get('id', '')
-        if not paper_id:
-            continue
-
-        repos_url = f"https://paperswithcode.com/api/v1/papers/{paper_id}/repositories/"
-        repos_data = api_get(repos_url, timeout=10)
-        if not repos_data or 'results' not in repos_data:
+        if not data or 'items' not in data or not data['items']:
             continue
 
         repos = []
-        for r in repos_data['results'][:3]:
-            repo_info = {
-                'url': r.get('url', ''),
-                'stars': r.get('stars', 0),
-                'framework': r.get('framework', ''),
-                'is_official': r.get('is_official', False),
-            }
-            if repo_info['url']:
-                repos.append(repo_info)
+        for r in data['items'][:3]:
+            name = r.get('full_name', '')
+            desc = (r.get('description') or '').lower()
+            title_lower = title.lower()
+
+            # 관련도 체크: 제목 단어가 레포 이름이나 설명에 포함되는지
+            title_words = set(title_lower.split()[:5])
+            desc_words = set(desc.split())
+            name_lower = name.lower()
+            overlap = len(title_words & desc_words)
+
+            if overlap < 2 and not any(w in name_lower for w in title_words if len(w) > 4):
+                continue
+
+            repos.append({
+                'url': r.get('html_url', ''),
+                'stars': r.get('stargazers_count', 0),
+                'framework': '',
+                'is_official': False,
+            })
 
         if repos:
             p['github_repos'] = repos
             found += 1
             best = repos[0]
-            tag = "★공식" if best['is_official'] else ""
-            print(f"  ✓ {title[:50]}... → {best['url']} ({best['stars']}★) {tag}")
+            print(f"  ✓ {title[:50]}... → {best['url']} ({best['stars']}★)")
 
-        adaptive_sleep(0.3)
-
-    print(f"  공개 코드 발견: {found}개 논문")
+    print(f"  코드 발견: {found}개 논문")
     print()
     return papers
 
