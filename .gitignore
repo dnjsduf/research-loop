@@ -1,0 +1,13 @@
+# 런타임 생성 파일 (각 프로젝트에서 git 관리)
+# queue.md
+# activity.md
+# docs/
+
+# 시스템
+.DS_Store
+Thumbs.db
+*.pyc
+__pycache__/
+
+# 시그널 파일
+fetch-signal.txt
