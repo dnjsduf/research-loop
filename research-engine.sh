@@ -360,46 +360,82 @@ def search_crossref(query, rows=10):
 # ── Stage 3: 인용 체인 탐색 ──────────────────────────────────
 
 def fetch_citation_chain(paper_id, direction='references', limit=10):
-    """Semantic Scholar에서 인용/피인용 논문 가져오기"""
+    """Semantic Scholar에서 인용/피인용 논문 가져오기.
+    S2 API는 citedPaper/citingPaper가 None인 경우가 있음 (미등록 논문).
+    entry 자체가 None이거나 필드가 비정상인 경우도 방어.
+    Ref: github.com/danielnsilva/semanticscholar/issues/80
+    """
     fields = "title,abstract,year,citationCount,authors,openAccessPdf,externalIds,url"
     url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}/{direction}?fields={fields}&limit={limit}"
-    data = api_get(url)
-    if not data or 'data' not in data:
+
+    try:
+        data = api_get(url)
+    except Exception:
+        return []
+
+    if not data or not isinstance(data, dict) or 'data' not in data:
+        return []
+
+    entries = data['data']
+    if not isinstance(entries, list):
         return []
 
     papers = []
-    for entry in data['data']:
-        p = entry.get('citedPaper' if direction == 'references' else 'citingPaper', {})
-        if not p or not p.get('title'):
+    key = 'citedPaper' if direction == 'references' else 'citingPaper'
+
+    for entry in entries:
+        # entry 자체가 None이거나 dict가 아닌 경우
+        if not entry or not isinstance(entry, dict):
             continue
 
-        doi = (p.get('externalIds') or {}).get('DOI', '')
-        arxiv_id = (p.get('externalIds') or {}).get('ArXiv', '')
-        oa_pdf = (p.get('openAccessPdf') or {}).get('url', '')
+        p = entry.get(key)
+        # citedPaper/citingPaper가 None인 경우 (S2 미등록)
+        if not p or not isinstance(p, dict) or not p.get('title'):
+            continue
 
-        if arxiv_id:
-            best_url = f"https://arxiv.org/abs/{arxiv_id}"
-        elif doi:
-            best_url = f"https://doi.org/{doi}"
-        else:
-            best_url = p.get('url', '')
+        try:
+            ext_ids = p.get('externalIds') or {}
+            if not isinstance(ext_ids, dict):
+                ext_ids = {}
+            doi = ext_ids.get('DOI', '')
+            arxiv_id = ext_ids.get('ArXiv', '')
 
-        authors = [a.get('name', '') for a in (p.get('authors') or [])[:5] if a.get('name')]
+            oa_obj = p.get('openAccessPdf') or {}
+            if not isinstance(oa_obj, dict):
+                oa_obj = {}
+            oa_pdf = oa_obj.get('url', '')
 
-        papers.append({
-            'title': p['title'],
-            'authors': authors,
-            'year': p.get('year') or 0,
-            'doi': doi,
-            'url': best_url,
-            'abstract': (p.get('abstract') or '')[:500],
-            'citation_count': p.get('citationCount') or 0,
-            'open_access': bool(oa_pdf),
-            'open_access_url': oa_pdf,
-            'source_api': 'semantic_scholar',
-            'found_via': f'citation_chain_{direction}',
-            'external_id': p.get('paperId', ''),
-        })
+            if arxiv_id:
+                best_url = f"https://arxiv.org/abs/{arxiv_id}"
+            elif doi:
+                best_url = f"https://doi.org/{doi}"
+            else:
+                best_url = p.get('url', '') or ''
+
+            author_list = p.get('authors') or []
+            if not isinstance(author_list, list):
+                author_list = []
+            authors = [a.get('name', '') for a in author_list[:5]
+                       if isinstance(a, dict) and a.get('name')]
+
+            papers.append({
+                'title': p['title'],
+                'authors': authors,
+                'year': p.get('year') or 0,
+                'doi': doi,
+                'url': best_url,
+                'abstract': (p.get('abstract') or '')[:500],
+                'citation_count': p.get('citationCount') or 0,
+                'open_access': bool(oa_pdf),
+                'open_access_url': oa_pdf,
+                'source_api': 'semantic_scholar',
+                'found_via': f'citation_chain_{direction}',
+                'external_id': p.get('paperId', ''),
+            })
+        except Exception:
+            # 개별 항목 파싱 실패 시 건너뛰기 (루프 중단 방지)
+            continue
+
     return papers
 
 # ── Stage 3.5: GitHub/공개 코드 탐색 (Papers With Code API) ───
