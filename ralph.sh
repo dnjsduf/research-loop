@@ -109,6 +109,48 @@ fi
 # 디렉토리 초기화
 mkdir -p docs/knowledge docs/reports docs/sources docs/research
 
+# ── Git 자동 초기화 ───────────────────────────────────────────
+init_git() {
+  if [ ! -d ".git" ]; then
+    echo -e "${CYAN}=== Git 저장소 초기화 ===${NC}"
+    git init -q
+    # .gitignore 생성
+    if [ ! -f ".gitignore" ]; then
+      cat > .gitignore << 'GIEOF'
+fetch-signal.txt
+.DS_Store
+Thumbs.db
+*.pyc
+__pycache__/
+GIEOF
+    fi
+    git add -A
+    git commit -q -m "init: research-loop pipeline setup"
+    echo -e "${GREEN}✓ Git 저장소 생성 완료${NC}"
+    echo ""
+  fi
+}
+
+# Git 커밋 (변경사항 있을 때만)
+git_commit() {
+  local MSG="$1"
+  if [ -d ".git" ]; then
+    git add -A 2>/dev/null || true
+    if ! git diff --cached --quiet 2>/dev/null; then
+      git commit -q -m "$MSG" 2>/dev/null || true
+    fi
+  fi
+}
+
+# Git 푸시 (remote 있을 때만)
+git_push() {
+  if [ -d ".git" ] && git remote get-url origin &>/dev/null; then
+    git push -q 2>/dev/null || true
+  fi
+}
+
+init_git
+
 # ── queue.md 조작 (queue-util.py 사용) ────────────────────────
 QUEUE_UTIL="$(dirname "$0")/queue-util.py"
 
@@ -218,8 +260,12 @@ UEOF
   echo "$result"
   echo ""
 
+  git_commit "update: ${UPDATE_SLUG} 최신화 완료"
+  git_push
+
   echo -e "${GREEN}======================================${NC}"
   echo -e "${GREEN}   UPDATE 완료: ${UPDATE_SLUG}${NC}"
+  echo -e "${GREEN}   ✓ Git 커밋 & 푸시 완료${NC}"
   echo -e "${GREEN}======================================${NC}"
   exit 0
 fi
@@ -256,6 +302,9 @@ if [ -n "$TOPIC" ] && [ -f "research-engine.sh" ]; then
   fi
   echo ""
 fi
+
+# research-engine 완료 후 커밋
+git_commit "research: ${TOPIC:-queue} — 논문 탐색 완료"
 
 echo -e "최대 반복 횟수: ${GREEN}$MAX_ITERATIONS${NC}"
 echo ""
@@ -368,8 +417,14 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo "  activity.md      — 실행 로그"
     echo "  queue.md         — 처리 이력"
     echo ""
+    git_commit "complete: iteration ${i} — 전체 완료"
+    git_push
+    echo -e "${GREEN}✓ Git 커밋 & 푸시 완료${NC}"
     exit 0
   fi
+
+  # iteration 완료 후 자동 커밋
+  git_commit "iteration ${i}: ${TOPIC:-queue} 처리"
 
   echo -e "${YELLOW}--- Iteration $i 완료 ---${NC}"
   echo ""
@@ -378,6 +433,10 @@ done
 # ── 최대 반복 도달 ───────────────────────────────────────────
 echo ""
 echo -e "${RED}최대 반복 횟수 도달 ($MAX_ITERATIONS)${NC}"
+echo ""
+git_commit "session: ${MAX_ITERATIONS} iterations 완료"
+git_push
+echo -e "${GREEN}✓ Git 커밋 & 푸시 완료${NC}"
 echo ""
 echo "남은 항목이 있으면:"
 echo "  ./ralph.sh --run 20"
