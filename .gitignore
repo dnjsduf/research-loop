@@ -9,5 +9,9 @@ Thumbs.db
 *.pyc
 __pycache__/
 
+# PDF 파일 (용량 큼 — 로컬만 보관)
+*.pdf
+docs/sources/
+
 # 시그널 파일
 fetch-signal.txt
