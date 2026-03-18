@@ -9,7 +9,7 @@
   python3 queue-util.py update-field "title" "field" "value"  # 특정 항목 필드 업데이트
 """
 
-import sys, re, json, os
+import sys, re, json, os, tempfile
 from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -108,8 +108,15 @@ def write_queue(items, original_content=""):
 
     content = '\n'.join(lines) + '\n' + done_section
 
-    with open(QUEUE_FILE, 'w', encoding='utf-8') as f:
-        f.write(content)
+    # atomic write: 임시 파일에 쓴 후 rename
+    fd, tmp_path = tempfile.mkstemp(dir='.', suffix='.tmp', prefix='queue_')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+        os.replace(tmp_path, QUEUE_FILE)
+    except Exception:
+        os.unlink(tmp_path)
+        raise
 
 def cmd_list():
     """pending/in_progress 항목 JSON 출력"""
@@ -165,6 +172,38 @@ def cmd_get_item_info():
     print(local_path)
     print(pdf_dir)
 
+def cmd_get_pending_fetch():
+    """fetch 대상 pending 항목 JSON 출력 (PDF 미확보 항목만)"""
+    items, _ = read_queue()
+    fetch_items = []
+    for item in items:
+        if item.get('status') != 'pending':
+            continue
+        lp = item.get('local_path')
+        # local_path가 없거나 파일이 존재하지 않는 항목만
+        if lp and lp not in ('null', 'None', '~', '') and os.path.exists(str(lp)):
+            continue
+        fetch_items.append({
+            'title': item.get('title', ''),
+            'url': item.get('url') or '',
+            'local_path': str(lp) if lp else 'null',
+            'access_type': item.get('access_type', 'url'),
+        })
+    print(json.dumps(fetch_items, ensure_ascii=False))
+
+def cmd_reset_stale():
+    """in_progress 상태 항목을 pending으로 리셋"""
+    items, content = read_queue()
+    reset_count = 0
+    for item in items:
+        if item.get('status') == 'in_progress':
+            item['status'] = 'pending'
+            item.pop('phase', None)
+            reset_count += 1
+    if reset_count > 0:
+        write_queue(items, content)
+    print(f"RESET:{reset_count}")
+
 def cmd_count_pending():
     """pending 개수"""
     items, _ = read_queue()
@@ -214,6 +253,10 @@ if __name__ == '__main__':
         cmd_get_item_info()
     elif cmd == 'count-pending':
         cmd_count_pending()
+    elif cmd == 'get-pending-fetch':
+        cmd_get_pending_fetch()
+    elif cmd == 'reset-stale':
+        cmd_reset_stale()
     elif cmd == 'update-field' and len(sys.argv) >= 5:
         cmd_update_field(sys.argv[2], sys.argv[3], sys.argv[4])
     else:

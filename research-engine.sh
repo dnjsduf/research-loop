@@ -585,7 +585,7 @@ def rank_papers(papers, query):
 
 # ── Stage 5: 출력 + queue 업데이트 ────────────────────────────
 
-def add_to_queue(papers, parent_slug, max_add=10):
+def add_to_queue(papers, parent_slug, max_add=3):
     """상위 논문을 queue.md에 배치 추가 (1회 읽기/쓰기)"""
     if not os.path.exists('queue.md'):
         return 0
@@ -978,7 +978,7 @@ if pending_count >= 30:
 else:
     remaining = 30 - pending_count
     relevant_papers = [p for p in top_papers if p.get('score', 0) >= 0.5]
-    added = add_to_queue(relevant_papers, slug, max_add=min(10, remaining))
+    added = add_to_queue(relevant_papers, slug, max_add=min(3, remaining))
 print(f"📋 queue에 {added}개 논문 추가")
 
 # ralph.sh가 파싱할 수 있는 요약 출력

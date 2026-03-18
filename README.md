@@ -24,21 +24,26 @@ cd research-loop
 research-loop/
 ├── ralph.sh              # 메인 오케스트레이터
 ├── research-engine.sh    # 학술 API 멀티홉 탐색
-├── fetch-sources.sh      # PDF 병렬 다운로드
+├── fetch-sources.sh      # PDF 순차 다운로드
 ├── detect-python.sh      # Python 자동 감지
 ├── queue-util.py         # queue 안전 파싱
-├── PROMPT.md             # Claude 마스터 프롬프트
-├── add-knowledge.md      # 문서 생성 지침
-├── update.md             # 문서 병합 정책
-├── verify-knowledge.md   # 지식DB 검증
-├── verify-report.md      # 보고서 검증
+├── prompts/
+│   ├── PROMPT.md         # Claude 마스터 프롬프트
+│   ├── add-knowledge.md  # 문서 생성 지침
+│   ├── update.md         # 문서 병합 정책
+│   ├── verify-knowledge.md # 지식DB 검증
+│   └── verify-report.md  # 보고서 검증
+├── ref/
+│   ├── CONVENTIONS.md    # 코딩 컨벤션
+│   ├── PIPELINE.md       # 아키텍처 다이어그램
+│   └── DEBUG.md          # 문제 해결 가이드
 ├── queue.md              # (자동 생성) 처리 대기열
 ├── activity.md           # (자동 생성) 실행 로그
 └── docs/
-    ├── research/         # 탐색 결과 JSON
+    ├── research/         # 탐색 결과 JSON (24h 캐시)
     ├── knowledge/        # AI 지식DB
     ├── reports/          # 사람용 보고서
-    └── sources/          # 원본 PDF
+    └── sources/          # 원본 PDF (git 제외)
 ```
 
 ## 사용법

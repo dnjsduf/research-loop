@@ -40,50 +40,9 @@ mkdir -p "$SOURCES_DIR"
 echo -e "${BLUE}=== fetch-sources: PDF 자동 다운로드 시작 ===${NC}"
 echo ""
 
-# ── 헬퍼: queue.md에서 pending 항목 추출 ─────────────────────
+# ── 헬퍼: queue.md에서 pending 항목 추출 (queue-util.py 통일) ──
 get_pending_items() {
-  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - << 'PYEOF'
-import re, json, sys
-sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-
-with open("queue.md", "r", encoding="utf-8") as f:
-    content = f.read()
-
-pending_section = re.search(r'papers:(.*?)(?=\ndone:|\nerrors:|\Z)', content, re.DOTALL)
-if not pending_section:
-    print("[]")
-    sys.exit(0)
-
-block = pending_section.group(1)
-items = []
-
-for chunk in re.split(r'\n  - title:', block):
-    chunk = chunk.strip()
-    if not chunk or ('status: pending' not in chunk and "status: 'pending'" not in chunk):
-        continue
-
-    title = re.search(r'^["\']?(.+?)["\']?\s*$', chunk.split('\n')[0])
-    url   = re.search(r'url:\s*["\']?([^"\'\n#]+)', chunk)
-    lp    = re.search(r'local_path:\s*["\']?([^"\'\n]+)', chunk)
-    at    = re.search(r'access_type:\s*(\S+)', chunk)
-
-    local_path  = lp.group(1).strip() if lp else "null"
-    access_type = at.group(1).strip() if at else "url"
-
-    # 이미 PDF 있으면 건너뜀
-    if local_path not in ('null', 'None', '~', '') and __import__('os').path.exists(local_path):
-        continue
-
-    items.append({
-        "title":       title.group(1).strip() if title else "",
-        "url":         url.group(1).strip() if url else "",
-        "local_path":  local_path,
-        "access_type": access_type,
-    })
-
-print(json.dumps(items, ensure_ascii=False))
-PYEOF
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 queue-util.py get-pending-fetch
 }
 
 # ── 헬퍼: queue.md 업데이트 (local_path, access_type) ─────────
@@ -284,10 +243,7 @@ print(f"ABSTRACT={info['abstract']}")
 PYEOF
 }
 
-MAX_PARALLEL=3
-ACTIVE_JOBS=0
-
-# 단일 항목 다운로드 함수 (백그라운드용)
+# 단일 항목 다운로드 함수
 download_one() {
   local TITLE="$1"
   local URL="$2"

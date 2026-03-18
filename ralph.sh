@@ -188,6 +188,7 @@ fetch-signal.txt
 Thumbs.db
 *.pyc
 __pycache__/
+docs/sources/*.pdf
 GIEOF
     fi
     git add -A
@@ -252,6 +253,14 @@ run_fetch() {
 
 get_current_item_info() {
   PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 "$QUEUE_UTIL" get-item-info || true
+}
+
+get_current_pdf() {
+  # docs/sources/에서 가장 최근 다운로드된 PDF 경로 반환
+  if [ -d "docs/sources" ]; then
+    find "docs/sources" -name "*.pdf" -printf '%T@ %p\n' 2>/dev/null | \
+      sort -rn | head -1 | cut -d' ' -f2-
+  fi
 }
 
 # ── 헤더 출력 ────────────────────────────────────────────────
@@ -342,13 +351,13 @@ UEOF
   echo -e "${CYAN}=== 문서 업데이트 시작 ===${NC}"
   echo ""
 
-  # PDF 수집 (다운로드된 것이 있으면 첨부)
-  UPDATE_FILE_ARGS=""
+  # PDF 수집 (다운로드된 것이 있으면 첨부) — 배열 방식
+  UPDATE_FILE_ARGS=()
   UPDATE_PDF_COUNT=0
   if [ -d "docs/sources" ]; then
     while IFS= read -r -d '' f; do
       if [ "$UPDATE_PDF_COUNT" -lt 5 ]; then
-        UPDATE_FILE_ARGS="$UPDATE_FILE_ARGS --file \"$f\""
+        UPDATE_FILE_ARGS+=(--file "$f")
         UPDATE_PDF_COUNT=$((UPDATE_PDF_COUNT + 1))
       fi
     done < <(find "docs/sources" -name "*.pdf" -print0 2>/dev/null)
@@ -356,12 +365,11 @@ UEOF
 
   if [ "$UPDATE_PDF_COUNT" -gt 0 ]; then
     echo -e "${GREEN}📄 PDF ${UPDATE_PDF_COUNT}개 첨부${NC}"
-    result=$(eval claude -p "\"$UPDATE_PROMPT\"" $UPDATE_FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
-  else
-    result=$(claude -p "$UPDATE_PROMPT" \
-      --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
-      --output-format text 2>&1) || true
   fi
+  result=$(claude -p "$UPDATE_PROMPT" \
+    "${UPDATE_FILE_ARGS[@]}" \
+    --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
+    --output-format text 2>&1) || true
 
   echo "$result"
   echo ""
@@ -449,6 +457,14 @@ echo -e "${YELLOW}2초 후 시작... 중단하려면 Ctrl+C${NC}"
 sleep 2
 echo ""
 
+# ── in_progress 복구: 이전 비정상 종료 대응 ──────────────────
+STALE_RESULT=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 "$QUEUE_UTIL" reset-stale 2>/dev/null) || true
+STALE_COUNT=$(echo "$STALE_RESULT" | grep -oE '[0-9]+' || echo "0")
+if [ "${STALE_COUNT:-0}" -gt 0 ]; then
+  echo -e "${YELLOW}⚠️  이전 실행 잔여 in_progress ${STALE_COUNT}개 → pending으로 리셋${NC}"
+  echo ""
+fi
+
 # ── 메인 루프 ────────────────────────────────────────────────
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo -e "${BLUE}--- Iteration $i / $MAX_ITERATIONS ---${NC}"
@@ -460,8 +476,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     run_fetch
   fi
 
-  # ── PDF 수집: research JSON 랭킹 순으로 매칭 ──────────────
-  FILE_ARGS=""
+  # ── PDF 수집: research JSON 랭킹 순으로 매칭 — 배열 방식 ──
+  FILE_ARGS=()
   PDF_COUNT=0
 
   # research JSON에서 랭킹 순으로 PDF 매칭
@@ -507,7 +523,7 @@ RPYEOF
 
     while IFS= read -r pdf_path; do
       if [ -n "$pdf_path" ] && [ -f "$pdf_path" ]; then
-        FILE_ARGS="$FILE_ARGS --file \"$pdf_path\""
+        FILE_ARGS+=(--file "$pdf_path")
         PDF_COUNT=$((PDF_COUNT + 1))
       fi
     done <<< "$RANKED_PDFS"
@@ -517,7 +533,7 @@ RPYEOF
   if [ "$PDF_COUNT" -eq 0 ] && [ -d "docs/sources" ]; then
     while IFS= read -r -d '' f; do
       if [ "$PDF_COUNT" -lt 5 ]; then
-        FILE_ARGS="$FILE_ARGS --file \"$f\""
+        FILE_ARGS+=(--file "$f")
         PDF_COUNT=$((PDF_COUNT + 1))
       fi
     done < <(find "docs/sources" -name "*.pdf" -print0 2>/dev/null)
@@ -532,12 +548,12 @@ RPYEOF
     if [ -n "$CURRENT_PDF_DIR" ] && [ -d "$CURRENT_PDF_DIR" ]; then
       while IFS= read -r -d '' f; do
         if [ "$PDF_COUNT" -lt 5 ]; then
-          FILE_ARGS="$FILE_ARGS --file \"$f\""
+          FILE_ARGS+=(--file "$f")
           PDF_COUNT=$((PDF_COUNT + 1))
         fi
       done < <(find "$CURRENT_PDF_DIR" -name "*.pdf" -print0 2>/dev/null)
     elif [ -n "$CURRENT_PDF" ] && [ -f "$CURRENT_PDF" ]; then
-      FILE_ARGS="--file \"$CURRENT_PDF\""
+      FILE_ARGS=(--file "$CURRENT_PDF")
       PDF_COUNT=1
     fi
   fi
@@ -552,14 +568,11 @@ RPYEOF
   fi
   echo ""
 
-  # Claude 실행
-  if [ "$PDF_COUNT" -gt 0 ]; then
-    result=$(eval claude -p "\"$(cat "${PROMPTS_DIR}/PROMPT.md")\"" $FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
-  else
-    result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
-      --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
-      --output-format text 2>&1) || true
-  fi
+  # Claude 실행 — 배열 방식 (eval 제거)
+  result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
+    "${FILE_ARGS[@]}" \
+    --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
+    --output-format text 2>&1) || true
 
   echo "$result"
   echo ""
@@ -579,9 +592,11 @@ RPYEOF
       echo ""
       result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
         --file "$CURRENT_PDF" \
+        --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
         --output-format text 2>&1) || true
     else
       result=$(claude -p "$(cat "${PROMPTS_DIR}/PROMPT.md")" \
+        --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
         --output-format text 2>&1) || true
     fi
 
