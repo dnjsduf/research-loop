@@ -237,6 +237,21 @@ fi
 echo -e "처리할 항목: ${GREEN}${COUNT}개${NC}"
 echo ""
 
+# 접근 불가 논문 목록 파일
+INACCESSIBLE_FILE="inaccessible-papers.txt"
+if [ ! -f "$INACCESSIBLE_FILE" ]; then
+  cat > "$INACCESSIBLE_FILE" << 'IAEOF'
+# 접근 불가 논문 목록 (Inaccessible Papers)
+# ==========================================
+# PDF 다운로드에 실패한 유료/비공개 논문 목록입니다.
+# 수동으로 확보 후 docs/sources/ 에 넣고 queue.md의 local_path를 업데이트하세요.
+#
+# 형식: [날짜] 제목 | URL | 시도한 방법
+# ==========================================
+
+IAEOF
+fi
+
 MAX_PARALLEL=3
 ACTIVE_JOBS=0
 
@@ -275,6 +290,13 @@ download_one() {
   else
     echo -e "  ${YELLOW}✗ $SAFE_NAME — url/limited${NC}"
     rm -f "$OUTPUT"
+    # 접근 불가 논문 기록
+    local TODAY
+    TODAY=$(date +%Y-%m-%d)
+    local METHODS="arXiv"
+    [ -n "$UNPAYWALL_EMAIL" ] && METHODS="$METHODS, Unpaywall"
+    METHODS="$METHODS, Semantic Scholar"
+    echo "[$TODAY] $TITLE | $URL | 시도: $METHODS" >> "$INACCESSIBLE_FILE"
   fi
 }
 
@@ -306,6 +328,13 @@ done
 
 # 남은 백그라운드 작업 대기
 wait 2>/dev/null || true
+
+# 접근 불가 논문 수 출력
+INACCESSIBLE_COUNT=$(grep -c "^\[" "$INACCESSIBLE_FILE" 2>/dev/null || echo "0")
+if [ "$INACCESSIBLE_COUNT" -gt 0 ]; then
+  echo -e "${YELLOW}⚠️ 접근 불가 논문: ${INACCESSIBLE_COUNT}개 — ${INACCESSIBLE_FILE} 참조${NC}"
+  echo ""
+fi
 
 echo -e "${BLUE}=== fetch-sources 완료 ===${NC}"
 echo ""
