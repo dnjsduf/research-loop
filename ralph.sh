@@ -226,6 +226,13 @@ if [ "$UPDATE_MODE" = true ] && [ -n "$TOPIC" ]; then
   echo "$RESEARCH_RESULT"
   echo ""
 
+  # 1.5. PDF 다운로드
+  if [ -f "fetch-sources.sh" ]; then
+    echo -e "${CYAN}=== PDF 다운로드 ===${NC}"
+    bash fetch-sources.sh || true
+    echo ""
+  fi
+
   # 2. Claude에게 update 지시
   UPDATE_PROMPT="$(cat << UEOF
 너는 기존 지식 문서를 최신 정보로 업데이트하는 에이전트야.
@@ -253,9 +260,26 @@ UEOF
   echo -e "${CYAN}=== 문서 업데이트 시작 ===${NC}"
   echo ""
 
-  result=$(claude -p "$UPDATE_PROMPT" \
-    --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
-    --output-format text 2>&1) || true
+  # PDF 수집 (다운로드된 것이 있으면 첨부)
+  UPDATE_FILE_ARGS=""
+  UPDATE_PDF_COUNT=0
+  if [ -d "docs/sources" ]; then
+    while IFS= read -r -d '' f; do
+      if [ "$UPDATE_PDF_COUNT" -lt 5 ]; then
+        UPDATE_FILE_ARGS="$UPDATE_FILE_ARGS --file \"$f\""
+        UPDATE_PDF_COUNT=$((UPDATE_PDF_COUNT + 1))
+      fi
+    done < <(find "docs/sources" -name "*.pdf" -print0 2>/dev/null)
+  fi
+
+  if [ "$UPDATE_PDF_COUNT" -gt 0 ]; then
+    echo -e "${GREEN}📄 PDF ${UPDATE_PDF_COUNT}개 첨부${NC}"
+    result=$(eval claude -p "\"$UPDATE_PROMPT\"" $UPDATE_FILE_ARGS --allowedTools "'Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash'" --output-format text 2>&1) || true
+  else
+    result=$(claude -p "$UPDATE_PROMPT" \
+      --allowedTools "Read,Write,Edit,WebSearch,WebFetch,Glob,Grep,Bash" \
+      --output-format text 2>&1) || true
+  fi
 
   echo "$result"
   echo ""
