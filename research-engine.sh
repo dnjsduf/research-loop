@@ -67,7 +67,7 @@ echo -e "최대 수집: ${GREEN}${MAX_RESULTS}개${NC} | 인용 깊이: ${GREEN}
 echo ""
 
 # ── 메인 Python 블록 ─────────────────────────────────────────
-PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$TOPIC" "$MAX_RESULTS" "$DEPTH" "$SLUG" "$HOPS" << 'PYEOF'
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TOPIC" "$MAX_RESULTS" "$DEPTH" "$SLUG" "$HOPS" << 'PYEOF'
 import sys, json, re, os, time, hashlib
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
@@ -122,14 +122,17 @@ def adaptive_sleep(min_interval=0.3):
         time.sleep(min_interval - elapsed)
     _last_api_call = time.time()
 
-def api_get(url, timeout=15):
+def api_get(url, timeout=15, headers=None):
     """URL에서 JSON을 가져온다. 실패하면 None."""
     adaptive_sleep(0.3)
     try:
-        req = Request(url, headers={
+        default_headers = {
             'User-Agent': 'research-engine/2.0 (academic-search)',
             'Accept': 'application/json'
-        })
+        }
+        if headers:
+            default_headers.update(headers)
+        req = Request(url, headers=default_headers)
         with urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode('utf-8'))
     except Exception as e:
@@ -155,12 +158,31 @@ def expand_keywords(topic):
 
     # 한글이 포함된 경우 영어 변환 추가
     if re.search(r'[가-힣]', topic):
+        matched = False
         for kr, en in kr_en_map.items():
             if kr in topic:
                 en_topic = topic.replace(kr, en)
                 variants.append(en_topic)
                 variants.append(en)
-        # 매핑에 없으면 원본만 사용 (Claude가 나중에 웹검색으로 보완)
+                matched = True
+        # 매핑에 없는 한글 → 사전 정의 확장 매핑
+        if not matched:
+            kr_broad_map = {
+                '인체동역학': ['human body dynamics', 'human biomechanics', 'human kinetics', 'musculoskeletal dynamics'],
+                '생체역학': ['biomechanics', 'biological mechanics'],
+                '운동역학': ['kinesiology', 'exercise biomechanics'],
+                '로봇공학': ['robotics', 'robot engineering'],
+                '신경과학': ['neuroscience'],
+                '의공학': ['biomedical engineering'],
+            }
+            for kr, ens in kr_broad_map.items():
+                if kr in topic:
+                    variants.extend(ens)
+                    matched = True
+            # 그래도 없으면 기본 영어 키워드 추출 시도
+            if not matched:
+                # 한글만 있으면 검색 불가 → 빈 결과 방지용 일반 키워드
+                print(f"  [WARN] 한글 주제 '{topic}' 영어 매핑 없음 — 검색 품질 저하 가능", file=sys.stderr)
     else:
         # 영어 주제: 약어/동의어 확장
         abbrev_map = {
@@ -450,11 +472,13 @@ def search_github_repos(papers):
         if not title:
             continue
 
-        # GitHub Search API (인증 없이 10req/min)
+        # GitHub Search API (인증 시 30req/min, 미인증 10req/min)
         query = quote(f'{title[:60]} paper')
         gh_url = f"https://api.github.com/search/repositories?q={query}&sort=stars&per_page=3"
-        adaptive_sleep(6.5)  # GitHub unauthenticated: 10 req/min
-        data = api_get(gh_url, timeout=10)
+        gh_token = os.environ.get('GITHUB_TOKEN', '')
+        gh_headers = {'Authorization': f'token {gh_token}'} if gh_token else {}
+        adaptive_sleep(2.5 if gh_token else 6.5)
+        data = api_get(gh_url, timeout=10, headers=gh_headers)
 
         if not data or 'items' not in data or not data['items']:
             continue
@@ -977,7 +1001,7 @@ if pending_count >= 30:
     added = 0
 else:
     remaining = 30 - pending_count
-    relevant_papers = [p for p in top_papers if p.get('score', 0) >= 0.5]
+    relevant_papers = [p for p in top_papers if p.get('score', 0) >= 0.6]
     added = add_to_queue(relevant_papers, slug, max_add=min(3, remaining))
 print(f"📋 queue에 {added}개 논문 추가")
 

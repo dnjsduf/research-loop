@@ -15,7 +15,7 @@ from datetime import datetime
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-QUEUE_FILE = 'queue.md'
+QUEUE_FILE = os.environ.get('QUEUE_FILE', 'queue.md')
 
 def read_queue():
     """queue.md를 읽어서 항목 리스트로 파싱"""

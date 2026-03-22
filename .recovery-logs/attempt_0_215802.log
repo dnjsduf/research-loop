@@ -1,0 +1,112 @@
+[0;36m작업 디렉토리: /c/Users/kbg52/Desktop/research-loop/whisper-like-asr-model-architecture-training-from-scratch[0m
+
+[1;33mqueue.md 없음. 새로 생성합니다...[0m
+[0;36m=== Git 저장소 초기화 ===[0m
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'activity.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'queue-util.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'queue.md', LF will be replaced by CRLF the next time Git touches it
+[0;32m✓ Git 저장소 생성 완료[0m
+
+[0;34m======================================[0m
+[0;34m   Ralph Knowledge Pipeline[0m
+[0;34m======================================[0m
+  모델: heavy=[0;32msonnet[0m / light=[0;32msonnet[0m
+
+주제: [0;32mWhisper-like ASR model architecture training from scratch[0m
+
+[0;32m✓ queue에 추가됨: "Whisper-like ASR model architecture training from scratch"[0m
+
+[0;36m=== 학술 논문 탐색 시작 ===[0m
+
+[1;33mMECE 분할 후 리프별 탐색으로 전환됨 — 넓은 주제 선행 탐색 스킵[0m
+
+[0;36m=== MECE 주제 분할 ===[0m
+
+[0;32m  "Whisper-like ASR model architecture training from scratch" → 7개 서브토픽 분할[0m
+  ├── audio preprocessing and feature extraction for ASR
+[1;33m  분할 스킵 (파싱 실패 또는 빈 응답): "audio preprocessing and feature extraction for ASR"[0m
+  ├── encoder architecture design for speech recognition
+[1;33m  분할 스킵 (파싱 실패 또는 빈 응답): "encoder architecture design for speech recognition"[0m
+  ├── decoder architecture and sequence-to-sequence generation for ASR
+[1;33m  분할 스킵 (파싱 실패 또는 빈 응답): "decoder architecture and sequence-to-sequence generation for ASR"[0m
+  ├── training data pipeline and speech dataset preparation
+[0;32m  "training data pipeline and speech dataset preparation" → 5개 서브토픽 분할[0m
+    ├── speech corpus collection and annotation
+[1;33m  깊이 상한(2) 도달: "speech corpus collection and annotation" → 리프 노드[0m
+    ├── audio preprocessing and feature extraction
+[1;33m  깊이 상한(2) 도달: "audio preprocessing and feature extraction" → 리프 노드[0m
+    ├── data augmentation for speech models
+[1;33m  깊이 상한(2) 도달: "data augmentation for speech models" → 리프 노드[0m
+    ├── multilingual and low-resource dataset preparation
+[1;33m  깊이 상한(2) 도달: "multilingual and low-resource dataset preparation" → 리프 노드[0m
+    ├── dataset quality control and validation
+[1;33m  깊이 상한(2) 도달: "dataset quality control and validation" → 리프 노드[0m
+  ├── training optimization and regularization techniques for ASR
+[0;32m  "training optimization and regularization techniques for ASR" → 6개 서브토픽 분할[0m
+    ├── learning rate scheduling and warm-up strategies for ASR
+[1;33m  깊이 상한(2) 도달: "learning rate scheduling and warm-up strategies for ASR" → 리프 노드[0m
+    ├── data augmentation techniques for ASR training
+[1;33m  깊이 상한(2) 도달: "data augmentation techniques for ASR training" → 리프 노드[0m
+    ├── dropout and stochastic regularization for ASR models
+[1;33m  깊이 상한(2) 도달: "dropout and stochastic regularization for ASR models" → 리프 노드[0m
+    ├── batch normalization and layer normalization in ASR
+[1;33m  깊이 상한(2) 도달: "batch normalization and layer normalization in ASR" → 리프 노드[0m
+    ├── knowledge distillation and model compression for ASR
+[1;33m  깊이 상한(2) 도달: "knowledge distillation and model compression for ASR" → 리프 노드[0m
+    ├── multi-task learning and auxiliary loss functions for ASR
+[1;33m  깊이 상한(2) 도달: "multi-task learning and auxiliary loss functions for ASR" → 리프 노드[0m
+  ├── tokenization and multilingual text normalization for ASR
+[0;32m  "tokenization and multilingual text normalization for ASR" → 4개 서브토픽 분할[0m
+    ├── subword tokenization methods for ASR (BPE, SentencePiece, WordPiece)
+[1;33m  깊이 상한(2) 도달: "subword tokenization methods for ASR (BPE, SentencePiece, WordPiece)" → 리프 노드[0m
+    ├── text normalization and inverse text normalization for ASR
+[1;33m  깊이 상한(2) 도달: "text normalization and inverse text normalization for ASR" → 리프 노드[0m
+    ├── multilingual and script-specific tokenization for ASR
+[1;33m  깊이 상한(2) 도달: "multilingual and script-specific tokenization for ASR" → 리프 노드[0m
+    ├── low-resource and cross-lingual transfer in ASR tokenization
+[1;33m  깊이 상한(2) 도달: "low-resource and cross-lingual transfer in ASR tokenization" → 리프 노드[0m
+  ├── evaluation metrics and benchmarking for speech recognition systems
+[0;32m  "evaluation metrics and benchmarking for speech recognition systems" → 5개 서브토픽 분할[0m
+    ├── word error rate and edit distance metrics
+[1;33m  깊이 상한(2) 도달: "word error rate and edit distance metrics" → 리프 노드[0m
+    ├── real-time and latency benchmarks for ASR
+[1;33m  깊이 상한(2) 도달: "real-time and latency benchmarks for ASR" → 리프 노드[0m
+    ├── speaker-independent and robustness evaluation
+[1;33m  깊이 상한(2) 도달: "speaker-independent and robustness evaluation" → 리프 노드[0m
+    ├── domain-specific and language benchmark datasets
+[1;33m  깊이 상한(2) 도달: "domain-specific and language benchmark datasets" → 리프 노드[0m
+    ├── end-to-end vs modular ASR system evaluation
+[1;33m  깊이 상한(2) 도달: "end-to-end vs modular ASR system evaluation" → 리프 노드[0m
+
+[0;36m=== 서브토픽 병렬 실행 (23개 리프, 5개 동시) ===[0m
+
+[1;33m  [DEBUG] LEAF_LIST: 23줄[0m
+    audio preprocessing and feature extraction for ASR|||audio-preprocessing-and-feature-extraction-for-asr
+    encoder architecture design for speech recognition|||encoder-architecture-design-for-speech-recognition
+    decoder architecture and sequence-to-sequence generation for ASR|||decoder-architecture-and-sequence-to-sequence-generation-for
+    speech corpus collection and annotation|||training-data-pipeline-and-speech-dataset-preparation/speech-corpus-collection-and-annotation
+    audio preprocessing and feature extraction|||training-data-pipeline-and-speech-dataset-preparation/audio-preprocessing-and-feature-extraction
+    data augmentation for speech models|||training-data-pipeline-and-speech-dataset-preparation/data-augmentation-for-speech-models
+    multilingual and low-resource dataset preparation|||training-data-pipeline-and-speech-dataset-preparation/multilingual-and-low-resource-dataset-preparation
+    dataset quality control and validation|||training-data-pipeline-and-speech-dataset-preparation/dataset-quality-control-and-validation
+    learning rate scheduling and warm-up strategies for ASR|||training-optimization-and-regularization-techniques-for-asr/learning-rate-scheduling-and-warm-up-strategies-for-asr
+    data augmentation techniques for ASR training|||training-optimization-and-regularization-techniques-for-asr/data-augmentation-techniques-for-asr-training
+
+[0;36m=== Phase 1.5: 리프별 논문 탐색 + 연관성 검증 ===[0m
+
+[0;34m  ▶ research-engine: "audio preprocessing and feature extraction for ASR"[0m
+[0;32m    ✓ 66개 논문 발견[0m
+[0;34m  ▶ research-engine: "encoder architecture design for speech recognition"[0m
+[0;32m    ✓ 75개 논문 발견[0m
+[0;34m  ▶ research-engine: "decoder architecture and sequence-to-sequence generation for ASR"[0m
+[0;32m    ✓ 89개 논문 발견[0m
+[0;34m  ▶ research-engine: "speech corpus collection and annotation"[0m
+[0;32m    ✓ 46개 논문 발견[0m
+[0;34m  ▶ research-engine: "audio preprocessing and feature extraction"[0m
+[0;32m    ✓ 66개 논문 발견[0m
+[0;34m  ▶ research-engine: "data augmentation for speech models"[0m
+[0;32m    ✓ 63개 논문 발견[0m
+[0;34m  ▶ research-engine: "multilingual and low-resource dataset preparation"[0m
+[0;32m    ✓ 74개 논문 발견[0m
+[0;34m  ▶ research-engine: "dataset quality control and validation"[0m

@@ -1,8 +1,0 @@
-=== Pipeline Report ===
-시작: 2026-03-19 02:01:07
-주제: 인체동역학
-모드: UPDATERUN
-
-[✅ OK] mece-split — 6개 리프 노드 생성
-[✅ OK] parallel-exec — 6/6 완료, 0 실패
-[✅ OK] merge-results — 6개 서브토픽 결과 병합

@@ -31,13 +31,13 @@ flowchart TD
 
     E[fetch-sources.sh<br/>PDF 다운로드]
 
-    subgraph FS ["fetch-sources.sh"]
-        E1[arXiv PDF] -->|실패| E2[Unpaywall OA]
-        E2 -->|실패| E3[Semantic Scholar OA]
-        E3 -->|실패| E4[inaccessible-papers.txt 기록]
-        E1 -->|성공| E5["docs/sources/{slug}.pdf"]
-        E2 -->|성공| E5
-        E3 -->|성공| E5
+    subgraph FS ["fetch-sources.sh (분야별 순서 자동 결정)"]
+        E1[분야 감지] --> E1a{분야?}
+        E1a -->|의생명| E2a["PMC → Unpaywall → bioRxiv → S2 → WebSearch"]
+        E1a -->|CS/AI| E2b["arXiv → S2 → Unpaywall → WebSearch"]
+        E1a -->|기본| E2c["arXiv → Unpaywall → S2 → PMC → bioRxiv → WebSearch"]
+        E2a & E2b & E2c -->|성공| E5["docs/sources/{slug}.pdf"]
+        E2a & E2b & E2c -->|실패| E4[inaccessible-papers.txt 기록]
     end
     E --> E1
 
@@ -83,14 +83,21 @@ flowchart TD
         S1 --> CL1["Claude split-topic.md"]
         CL1 -->|"빈 배열"| LEAF1[리프 노드 등록]
         CL1 -->|"서브토픽 배열"| FOLD[폴더 생성]
-        FOLD --> REC["재귀 분할<br/>(depth+1, 최대 3)"]
+        FOLD --> REC["재귀 분할<br/>(depth+1, 최대 2)"]
         REC --> CL1
     end
 
     LEAF1 --> ST["subtopics.json<br/>전체 트리 + 리프 목록"]
     REC --> ST
 
-    ST --> P2[Phase 2: 병렬 실행]
+    ST --> P15[Phase 1.5: 리프별 탐색 + 검증]
+    subgraph P15S ["Phase 1.5 — 논문 탐색 + 연관성 검증 + PDF"]
+        P15 --> RE["리프별 research-engine<br/>(순차, --max-results 10)"]
+        RE --> RV["Claude 연관성 검증<br/>비관련 논문 제거"]
+        RV --> FE["fetch-sources.sh<br/>일괄 PDF 다운로드"]
+    end
+
+    FE --> P2[Phase 2: 병렬 실행]
     subgraph P2S ["Phase 2 — 리프 노드 실행"]
         P2 --> B1["배치 1<br/>N개 동시"]
         P2 --> B2["배치 2<br/>N개 동시"]
@@ -108,7 +115,7 @@ flowchart TD
 - `--parallel N`: 동시 실행 수 (기본 3, 최대 5)
 
 **안전장치:**
-- 깊이 상한 3 (depth ≥ 3이면 무조건 리프)
+- 깊이 상한 2 (depth ≥ 2이면 무조건 리프)
 - Claude 분할 실패/파싱 실패 → 분할 스킵, 기존 흐름 유지
 - 서브토픽별 독립 폴더 → queue.md 충돌 없음
 - 동시 실행 최대 5개 → API rate limit 완화
@@ -133,7 +140,7 @@ flowchart TD
 
     EX --> EX1["priority ≥ 3 → 참조 금지"]
     EX --> EX2["pending ≥ 30 → 추가 중단"]
-    EX --> EX3["회당 최대 3개, score ≥ 0.5"]
+    EX --> EX3["회당 최대 3개, score ≥ 0.6"]
     EX --> EX4["24h 캐시, SS 429 보상"]
 
     QA --> QA1["verify Anti-Bias + 팩트체크"]

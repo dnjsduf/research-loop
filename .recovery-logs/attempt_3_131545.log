@@ -1,0 +1,269 @@
+[0;36m작업 디렉토리: /c/Users/kbg52/Desktop/research-loop/streaming-asr-real-time-online-speech-recognition[0m
+
+[0;34m======================================[0m
+[0;34m   Ralph Knowledge Pipeline[0m
+[0;34m======================================[0m
+  모델: heavy=[0;32msonnet[0m / light=[0;32msonnet[0m
+
+주제: [0;32mstreaming ASR real-time online speech recognition[0m
+
+[1;33m⚠️  이미 queue에 있는 주제입니다. 기존 항목으로 진행합니다.[0m
+
+[0;36m=== 학술 논문 탐색 시작 ===[0m
+
+[1;33mMECE 분할 후 리프별 탐색으로 전환됨 — 넓은 주제 선행 탐색 스킵[0m
+
+[0;36m=== MECE 주제 분할 ===[0m
+
+[0;32m  "streaming ASR real-time online speech recognition" → 6개 서브토픽 분할[0m
+  ├── streaming ASR acoustic model architectures
+[0;32m  "streaming ASR acoustic model architectures" → 5개 서브토픽 분할[0m
+    ├── recurrent neural network architectures for streaming ASR
+[1;33m  깊이 상한(2) 도달: "recurrent neural network architectures for streaming ASR" → 리프 노드[0m
+    ├── transformer-based streaming ASR architectures
+[1;33m  깊이 상한(2) 도달: "transformer-based streaming ASR architectures" → 리프 노드[0m
+    ├── RNN-Transducer and neural transducer architectures
+[1;33m  깊이 상한(2) 도달: "RNN-Transducer and neural transducer architectures" → 리프 노드[0m
+    ├── CTC-based streaming acoustic models
+[1;33m  깊이 상한(2) 도달: "CTC-based streaming acoustic models" → 리프 노드[0m
+    ├── hybrid and multistream acoustic model architectures for online ASR
+[1;33m  깊이 상한(2) 도달: "hybrid and multistream acoustic model architectures for online ASR" → 리프 노드[0m
+  ├── streaming ASR decoding algorithms and language modeling
+[0;32m  "streaming ASR decoding algorithms and language modeling" → 5개 서브토픽 분할[0m
+    ├── streaming decoder architectures for ASR
+[1;33m  깊이 상한(2) 도달: "streaming decoder architectures for ASR" → 리프 노드[0m
+    ├── language model integration in streaming ASR
+[1;33m  깊이 상한(2) 도달: "language model integration in streaming ASR" → 리프 노드[0m
+    ├── end-to-end streaming ASR models
+[1;33m  깊이 상한(2) 도달: "end-to-end streaming ASR models" → 리프 노드[0m
+    ├── beam search and pruning strategies for online decoding
+[1;33m  깊이 상한(2) 도달: "beam search and pruning strategies for online decoding" → 리프 노드[0m
+    ├── contextual and domain adaptation in streaming ASR
+[1;33m  깊이 상한(2) 도달: "contextual and domain adaptation in streaming ASR" → 리프 노드[0m
+  ├── latency optimization and lookahead strategies in streaming ASR
+[0;32m  "latency optimization and lookahead strategies in streaming ASR" → 3개 서브토픽 분할[0m
+    ├── lookahead buffer and future context mechanisms in streaming ASR
+[1;33m  깊이 상한(2) 도달: "lookahead buffer and future context mechanisms in streaming ASR" → 리프 노드[0m
+    ├── low-latency streaming encoder architectures for online ASR
+[1;33m  깊이 상한(2) 도달: "low-latency streaming encoder architectures for online ASR" → 리프 노드[0m
+    ├── latency-accuracy tradeoff evaluation and decoding optimization in real-time ASR
+[1;33m  깊이 상한(2) 도달: "latency-accuracy tradeoff evaluation and decoding optimization in real-time ASR" → 리프 노드[0m
+  ├── robustness and adaptation in streaming ASR
+[0;32m  "robustness and adaptation in streaming ASR" → 5개 서브토픽 분할[0m
+    ├── acoustic noise robustness in streaming ASR
+[1;33m  깊이 상한(2) 도달: "acoustic noise robustness in streaming ASR" → 리프 노드[0m
+    ├── speaker adaptation for streaming ASR
+[1;33m  깊이 상한(2) 도달: "speaker adaptation for streaming ASR" → 리프 노드[0m
+    ├── domain and language adaptation in streaming ASR
+[1;33m  깊이 상한(2) 도달: "domain and language adaptation in streaming ASR" → 리프 노드[0m
+    ├── training strategies for robust streaming ASR
+[1;33m  깊이 상한(2) 도달: "training strategies for robust streaming ASR" → 리프 노드[0m
+    ├── streaming ASR architecture robustness under latency constraints
+[1;33m  깊이 상한(2) 도달: "streaming ASR architecture robustness under latency constraints" → 리프 노드[0m
+  ├── streaming ASR system deployment and edge inference
+[0;32m  "streaming ASR system deployment and edge inference" → 5개 서브토픽 분할[0m
+    ├── streaming ASR model architectures
+[1;33m  깊이 상한(2) 도달: "streaming ASR model architectures" → 리프 노드[0m
+    ├── edge hardware and runtime optimization for ASR
+[1;33m  깊이 상한(2) 도달: "edge hardware and runtime optimization for ASR" → 리프 노드[0m
+    ├── real-time audio pipeline and low-latency inference
+[1;33m  깊이 상한(2) 도달: "real-time audio pipeline and low-latency inference" → 리프 노드[0m
+    ├── streaming ASR deployment infrastructure and serving
+[1;33m  깊이 상한(2) 도달: "streaming ASR deployment infrastructure and serving" → 리프 노드[0m
+    ├── on-device ASR accuracy and adaptation
+[1;33m  깊이 상한(2) 도달: "on-device ASR accuracy and adaptation" → 리프 노드[0m
+  ├── streaming ASR evaluation benchmarks and metrics
+[0;32m  "streaming ASR evaluation benchmarks and metrics" → 4개 서브토픽 분할[0m
+    ├── streaming ASR accuracy metrics (WER, CER, substitution-insertion-deletion analysis)
+[1;33m  깊이 상한(2) 도달: "streaming ASR accuracy metrics (WER, CER, substitution-insertion-deletion analysis)" → 리프 노드[0m
+    ├── streaming ASR latency metrics (emission latency, endpointing, partial hypothesis delay)
+[1;33m  깊이 상한(2) 도달: "streaming ASR latency metrics (emission latency, endpointing, partial hypothesis delay)" → 리프 노드[0m
+    ├── streaming ASR benchmark datasets and test corpora
+[1;33m  깊이 상한(2) 도달: "streaming ASR benchmark datasets and test corpora" → 리프 노드[0m
+    ├── streaming ASR evaluation frameworks and toolkits
+[1;33m  깊이 상한(2) 도달: "streaming ASR evaluation frameworks and toolkits" → 리프 노드[0m
+
+[0;36m=== 서브토픽 병렬 실행 (27개 리프, 3개 동시) ===[0m
+
+[1;33m  [DEBUG] LEAF_LIST: 27줄[0m
+    recurrent neural network architectures for streaming ASR|||streaming-asr-acoustic-model-architectures/recurrent-neural-network-architectures-for-streaming-asr
+    transformer-based streaming ASR architectures|||streaming-asr-acoustic-model-architectures/transformer-based-streaming-asr-architectures
+    RNN-Transducer and neural transducer architectures|||streaming-asr-acoustic-model-architectures/rnn-transducer-and-neural-transducer-architectures
+    CTC-based streaming acoustic models|||streaming-asr-acoustic-model-architectures/ctc-based-streaming-acoustic-models
+    hybrid and multistream acoustic model architectures for online ASR|||streaming-asr-acoustic-model-architectures/hybrid-and-multistream-acoustic-model-architectures-for-onli
+    streaming decoder architectures for ASR|||streaming-asr-decoding-algorithms-and-language-modeling/streaming-decoder-architectures-for-asr
+    language model integration in streaming ASR|||streaming-asr-decoding-algorithms-and-language-modeling/language-model-integration-in-streaming-asr
+    end-to-end streaming ASR models|||streaming-asr-decoding-algorithms-and-language-modeling/end-to-end-streaming-asr-models
+    beam search and pruning strategies for online decoding|||streaming-asr-decoding-algorithms-and-language-modeling/beam-search-and-pruning-strategies-for-online-decoding
+    contextual and domain adaptation in streaming ASR|||streaming-asr-decoding-algorithms-and-language-modeling/contextual-and-domain-adaptation-in-streaming-asr
+
+[0;36m=== Phase 1.5: 리프별 논문 탐색 + 연관성 검증 ===[0m
+
+[0;34m  ▶ research-engine: "recurrent neural network architectures for streaming ASR"[0m
+[0;32m    ✓ 91개 논문 발견[0m
+[0;34m  ▶ research-engine: "transformer-based streaming ASR architectures"[0m
+[0;32m    ✓ 89개 논문 발견[0m
+[0;34m  ▶ research-engine: "RNN-Transducer and neural transducer architectures"[0m
+[0;32m    ✓ 69개 논문 발견[0m
+[0;34m  ▶ research-engine: "CTC-based streaming acoustic models"[0m
+[0;32m    ✓ 61개 논문 발견[0m
+[0;34m  ▶ research-engine: "hybrid and multistream acoustic model architectures for online ASR"[0m
+[0;32m    ✓ 84개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming decoder architectures for ASR"[0m
+[0;32m    ✓ 68개 논문 발견[0m
+[0;34m  ▶ research-engine: "language model integration in streaming ASR"[0m
+[0;32m    ✓ 73개 논문 발견[0m
+[0;34m  ▶ research-engine: "end-to-end streaming ASR models"[0m
+[0;32m    ✓ 54개 논문 발견[0m
+[0;34m  ▶ research-engine: "beam search and pruning strategies for online decoding"[0m
+[0;32m    ✓ 54개 논문 발견[0m
+[0;34m  ▶ research-engine: "contextual and domain adaptation in streaming ASR"[0m
+[0;32m    ✓ 63개 논문 발견[0m
+[0;34m  ▶ research-engine: "lookahead buffer and future context mechanisms in streaming ASR"[0m
+[0;32m    ✓ 79개 논문 발견[0m
+[0;34m  ▶ research-engine: "low-latency streaming encoder architectures for online ASR"[0m
+[0;32m    ✓ 75개 논문 발견[0m
+[0;34m  ▶ research-engine: "latency-accuracy tradeoff evaluation and decoding optimization in real-time ASR"[0m
+[0;32m    ✓ 61개 논문 발견[0m
+[0;34m  ▶ research-engine: "acoustic noise robustness in streaming ASR"[0m
+[0;32m    ✓ 56개 논문 발견[0m
+[0;34m  ▶ research-engine: "speaker adaptation for streaming ASR"[0m
+[0;32m    ✓ 77개 논문 발견[0m
+[0;34m  ▶ research-engine: "domain and language adaptation in streaming ASR"[0m
+[0;32m    ✓ 60개 논문 발견[0m
+[0;34m  ▶ research-engine: "training strategies for robust streaming ASR"[0m
+[0;32m    ✓ 62개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR architecture robustness under latency constraints"[0m
+[0;32m    ✓ 69개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR model architectures"[0m
+[0;32m    ✓ 57개 논문 발견[0m
+[0;34m  ▶ research-engine: "edge hardware and runtime optimization for ASR"[0m
+[0;32m    ✓ 61개 논문 발견[0m
+[0;34m  ▶ research-engine: "real-time audio pipeline and low-latency inference"[0m
+[0;32m    ✓ 66개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR deployment infrastructure and serving"[0m
+[0;32m    ✓ 73개 논문 발견[0m
+[0;34m  ▶ research-engine: "on-device ASR accuracy and adaptation"[0m
+[0;32m    ✓ 68개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR accuracy metrics (WER, CER, substitution-insertion-deletion analysis)"[0m
+[0;32m    ✓ 65개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR latency metrics (emission latency, endpointing, partial hypothesis delay)"[0m
+[0;32m    ✓ 60개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR benchmark datasets and test corpora"[0m
+[0;32m    ✓ 60개 논문 발견[0m
+[0;34m  ▶ research-engine: "streaming ASR evaluation frameworks and toolkits"[0m
+[0;32m    ✓ 72개 논문 발견[0m
+
+[0;36m  Claude 연관성 검증 시작 (파일별 배치)...[0m
+[1;33m    ⚠ accent-and-cross-lingual-robustness-in-streaming-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ acoustic-model-training-strategies-for-noise-and-variability.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [3] acoustic-noise-robustness-in-streaming-asr.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[1;33m    ⚠ asr-model-compression-and-quantization-for-on-device-deploym.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ attention-based-and-transducer-decoding-strategies.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [6] beam-search-and-pruning-strategies-for-asr-decoding.json (1편)[0m
+[0;34m    ▶ [7] beam-search-and-pruning-strategies-for-online-decoding.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [8] contextual-and-domain-adaptation-in-streaming-asr.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[0;34m    ▶ [9] ctc-based-end-to-end-streaming-asr.json (1편)[0m
+[0;34m    ▶ [10] ctc-based-streaming-acoustic-models.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ decoding-algorithms-and-language-model-integration-in-stream.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [12] domain-and-language-adaptation-in-streaming-asr.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ domain-and-vocabulary-adaptation-for-streaming-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ edge-deployment-frameworks-and-runtime-engines-for-speech-re.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [15] edge-hardware-acceleration-and-deployment-for-asr.json (5편)[0m
+[0;32m      ✓ 5개 비관련 논문 제거[0m
+[0;34m    ▶ [16] edge-hardware-and-runtime-optimization-for-asr.json (10편)[0m
+[0;32m      ✓ 5개 비관련 논문 제거[0m
+[0;34m    ▶ [17] efficient-neural-architectures-for-lightweight-asr.json (5편)[0m
+[0;32m      ✓ 4개 비관련 논문 제거[0m
+[0;34m    ▶ [18] end-to-end-streaming-asr-models.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[0;34m    ▶ [19] end-to-end-streaming-decoder-architectures.json (6편)[0m
+[0;32m      ✓ 1개 비관련 논문 제거[0m
+[0;34m    ▶ [20] end-to-end-streaming-models-rnn-t-ctc-attention-based.json (1편)[0m
+[1;33m    ⚠ evaluation-benchmarks-and-datasets-for-robust-streaming-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ greedy-and-prefix-based-online-decoding.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [23] hardware-accelerators-and-runtime-frameworks-for-edge-asr.json (3편)[0m
+[0;34m    ▶ [24] hardware-aware-inference-optimization-for-edge-asr.json (3편)[0m
+[0;34m    ▶ [25] hybrid-and-multistream-acoustic-model-architectures-for-onli.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [26] language-model-integration-in-online-asr-decoding.json (1편)[0m
+[0;34m    ▶ [27] language-model-integration-in-streaming-asr.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ large-language-model-rescoring-and-second-pass-decoding-in-a.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [29] latency-accuracy-trade-offs-and-benchmarking-in-on-device-as.json (1편)[0m
+[1;33m    ⚠ latency-accuracy-tradeoff-and-chunk-based-processing.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ latency-accuracy-tradeoff-and-real-time-constraints-in-onlin.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [32] latency-accuracy-tradeoff-evaluation-and-decoding-optimizati.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ latency-accuracy-tradeoff-in-online-speech-recognition.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ latency-optimization-and-lookahead-mechanisms-in-streaming-a.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ lightweight-asr-model-architectures-for-edge-devices.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [36] lookahead-buffer-and-future-context-mechanisms-in-streaming.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [37] low-latency-streaming-encoder-architectures-for-online-asr.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ microphone-and-channel-compensation-for-streaming-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ model-compression-and-quantization-for-on-device-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ multi-condition-training-and-data-augmentation-for-robust-as.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ neural-language-model-rescoring-for-streaming-speech-recogni.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ neural-transducer-streaming-asr-architectures.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ noise-and-environmental-robustness-in-streaming-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ noise-robust-frontend-processing-for-streaming-asr.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [45] noise-robustness-in-streaming-speech-recognition.json (7편)[0m
+[0;34m    ▶ [46] on-device-asr-accuracy-and-adaptation.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ on-device-asr-adaptation-and-personalization.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ on-the-fly-lm-adaptation-and-personalization-in-streaming-as.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [49] online-and-continual-learning-for-streaming-asr.json (3편)[0m
+[1;33m    ⚠ online-language-model-integration-and-shallow-fusion.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ prefix-tree-and-lexicon-constrained-decoding.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [52] real-time-audio-pipeline-and-low-latency-inference.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ real-time-streaming-pipeline-latency-and-buffering-strategie.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [54] recurrent-neural-network-architectures-for-streaming-asr.json (10편)[0m
+[0;32m      ✓ 5개 비관련 논문 제거[0m
+[0;34m    ▶ [55] rnn-transducer-and-neural-transducer-architectures.json (10편)[0m
+[0;32m      ✓ 6개 비관련 논문 제거[0m
+[0;34m    ▶ [56] shallow-fusion-and-deep-fusion-of-language-models-in-streami.json (2편)[0m
+[1;33m    ⚠ speaker-adaptation-and-personalization-in-streaming-asr.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [58] speaker-adaptation-for-streaming-asr.json (10편)[0m
+[0;32m      ✓ 2개 비관련 논문 제거[0m
+[0;34m    ▶ [59] speaker-adaptation-methods-for-online-asr.json (2편)[0m
+[1;33m    ⚠ speaker-and-microphone-variability-adaptation-in-streaming-a.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [61] streaming-acoustic-model-architectures-for-asr.json (4편)[0m
+[0;34m    ▶ [62] streaming-and-low-latency-decoding-for-real-time-on-device-a.json (6편)[0m
+[1;33m    ⚠ streaming-and-low-latency-inference-for-real-time-asr.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [64] streaming-asr-accuracy-metrics-wer-cer-substitution-insertio.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [65] streaming-asr-architecture-robustness-under-latency-constrai.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[1;33m    ⚠ streaming-asr-beam-search-and-pruning-strategies.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [67] streaming-asr-benchmark-datasets-and-test-corpora.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [68] streaming-asr-decoding-strategies-and-latency-accuracy-trade.json (3편)[0m
+[0;34m    ▶ [69] streaming-asr-deployment-infrastructure-and-serving.json (10편)[0m
+[0;32m      ✓ 10개 비관련 논문 제거[0m
+[0;34m    ▶ [70] streaming-asr-evaluation-frameworks-and-toolkits.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[0;34m    ▶ [71] streaming-asr-latency-metrics-emission-latency-endpointing-p.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[1;33m    ⚠ streaming-asr-model-architectures-for-online-inference.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [73] streaming-asr-model-architectures.json (10편)[0m
+[0;32m      ✓ 9개 비관련 논문 제거[0m
+[0;34m    ▶ [74] streaming-attention-encoder-decoder-asr.json (5편)[0m
+[0;34m    ▶ [75] streaming-decoder-architectures-for-asr.json (10편)[0m
+[0;32m      ✓ 6개 비관련 논문 제거[0m
+[1;33m    ⚠ token-passing-and-lattice-based-search-algorithms.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [77] training-strategies-for-robust-streaming-asr.json (10편)[0m
+[0;32m      ✓ 2개 비관련 논문 제거[0m
+[1;33m    ⚠ transducer-based-lm-integration-in-real-time-asr.json: 파싱 실패 — 스킵[0m
+[1;33m    ⚠ transformer-and-conformer-architectures-for-streaming-asr.json: 파싱 실패 — 스킵[0m
+[0;34m    ▶ [80] transformer-based-streaming-asr-architectures.json (10편)[0m
+[0;32m      ✓ 2개 비관련 논문 제거[0m
+[0;32m  ✓ 연관성 검증 완료: 45/80 배치 성공, 총 232개 제거[0m
+[0;35m[HEALTH] phase1.5-relevance | OK | 45/80 배치, 232개 제거[0m

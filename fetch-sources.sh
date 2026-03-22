@@ -26,6 +26,7 @@ NC='\033[0m'
 
 SOURCES_DIR="docs/sources"
 UNPAYWALL_EMAIL="${UNPAYWALL_EMAIL:-}"
+MODEL_LIGHT="${MODEL_LIGHT:-sonnet}"
 
 # --email 옵션 파싱
 while [[ $# -gt 0 ]]; do
@@ -42,7 +43,7 @@ echo ""
 
 # ── 헬퍼: queue.md에서 pending 항목 추출 (queue-util.py 통일) ──
 get_pending_items() {
-  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 queue-util.py get-pending-fetch
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 "$(dirname "$0")/queue-util.py" get-pending-fetch
 }
 
 # ── 헬퍼: queue.md 업데이트 (local_path, access_type) ─────────
@@ -51,7 +52,7 @@ update_queue_item() {
   local LOCAL_PATH="$2"
   local ACCESS_TYPE="$3"
 
-  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$TITLE" "$LOCAL_PATH" "$ACCESS_TYPE" << 'PYEOF'
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TITLE" "$LOCAL_PATH" "$ACCESS_TYPE" << 'PYEOF'
 import sys, re
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
@@ -123,7 +124,7 @@ try_unpaywall() {
   RESPONSE=$(curl -sL --max-time 15 "$API_URL" 2>/dev/null)
 
   local PDF_URL
-  PDF_URL=$(echo "$RESPONSE" | python3 -c "
+  PDF_URL=$(echo "$RESPONSE" | $PYTHON3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -152,13 +153,13 @@ try_semantic_scholar() {
 
   echo -e "  ${BLUE}Semantic Scholar 시도: \"$TITLE\"${NC}"
   local ENCODED_TITLE
-  ENCODED_TITLE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$TITLE'))")
+  ENCODED_TITLE=$($PYTHON3 -c "import urllib.parse; print(urllib.parse.quote('$TITLE'))")
   local API_URL="https://api.semanticscholar.org/graph/v1/paper/search?query=${ENCODED_TITLE}&fields=title,openAccessPdf&limit=1"
   local RESPONSE
   RESPONSE=$(curl -sL --max-time 15 "$API_URL" 2>/dev/null)
 
   local PDF_URL
-  PDF_URL=$(echo "$RESPONSE" | python3 -c "
+  PDF_URL=$(echo "$RESPONSE" | $PYTHON3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -183,9 +184,267 @@ except:
   return 1
 }
 
+# ── PMC API → PDF 다운로드 (의생명/생체역학 논문) ─────────────
+try_pmc() {
+  local TITLE="$1"
+  local OUTPUT="$2"
+
+  # research JSON에서 PMID/DOI 조회
+  local PMC_INFO
+  PMC_INFO=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TITLE" << 'PMCEOF'
+import sys, json, glob, os, re
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+title = sys.argv[1].lower().strip()
+for jf in glob.glob("docs/research/*.json"):
+    try:
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for p in data.get('papers', []):
+            if p.get('title', '').lower().strip() == title:
+                pmid = p.get('pmid', '') or p.get('pubmedId', '') or ''
+                doi = p.get('doi', '') or ''
+                pmc_id = p.get('pmcid', '') or p.get('pmcId', '') or ''
+                print(f"PMID={pmid}")
+                print(f"DOI={doi}")
+                print(f"PMCID={pmc_id}")
+                sys.exit(0)
+    except:
+        continue
+print("PMID=")
+print("DOI=")
+print("PMCID=")
+PMCEOF
+  ) || PMC_INFO=""
+
+  local PMID DOI PMCID
+  PMID=$(echo "$PMC_INFO" | grep "^PMID=" | cut -d= -f2-)
+  DOI=$(echo "$PMC_INFO" | grep "^DOI=" | cut -d= -f2-)
+  PMCID=$(echo "$PMC_INFO" | grep "^PMCID=" | cut -d= -f2-)
+
+  # PMID로 PMC ID 조회
+  if [ -z "$PMCID" ] && [ -n "$PMID" ]; then
+    echo -e "  ${BLUE}PMC 시도: PMID=$PMID${NC}"
+    local CONV_RESP
+    CONV_RESP=$(curl -sL --max-time 15 "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${PMID}&format=json" 2>/dev/null)
+    PMCID=$(echo "$CONV_RESP" | $PYTHON3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for r in data.get('records', []):
+        pmcid = r.get('pmcid', '')
+        if pmcid:
+            print(pmcid)
+            break
+    else:
+        print('')
+except:
+    print('')
+" 2>/dev/null)
+  fi
+
+  # DOI로 PMC ID 조회
+  if [ -z "$PMCID" ] && [ -n "$DOI" ]; then
+    echo -e "  ${BLUE}PMC 시도: DOI=$DOI${NC}"
+    local CONV_RESP
+    CONV_RESP=$(curl -sL --max-time 15 "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${DOI}&format=json" 2>/dev/null)
+    PMCID=$(echo "$CONV_RESP" | $PYTHON3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for r in data.get('records', []):
+        pmcid = r.get('pmcid', '')
+        if pmcid:
+            print(pmcid)
+            break
+    else:
+        print('')
+except:
+    print('')
+" 2>/dev/null)
+  fi
+
+  if [ -n "$PMCID" ]; then
+    # PMC ID에서 숫자만 추출
+    local PMC_NUM="${PMCID#PMC}"
+    local PDF_URL="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${PMC_NUM}/pdf/"
+    echo -e "  ${BLUE}PMC PDF 시도: $PDF_URL${NC}"
+    if curl -sL --max-time 30 -o "$OUTPUT" "$PDF_URL" && \
+       file "$OUTPUT" 2>/dev/null | grep -q "PDF"; then
+      return 0
+    fi
+    rm -f "$OUTPUT"
+  fi
+  return 1
+}
+
+# ── bioRxiv/medRxiv DOI → PDF 직접 변환 ──────────────────────
+try_biorxiv() {
+  local URL="$1"
+  local TITLE="$2"
+  local OUTPUT="$3"
+
+  # URL에서 bioRxiv/medRxiv DOI 감지
+  local PDF_URL=""
+  if [[ "$URL" =~ (biorxiv\.org|medrxiv\.org)/content/([0-9.]+/[0-9v.]+) ]]; then
+    local BASE="${BASH_REMATCH[1]}"
+    local DOI_SUFFIX="${BASH_REMATCH[2]}"
+    PDF_URL="https://www.${BASE}/content/${DOI_SUFFIX}.full.pdf"
+  fi
+
+  # research JSON에서 DOI로도 시도
+  if [ -z "$PDF_URL" ]; then
+    local DOI_INFO
+    DOI_INFO=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TITLE" << 'BREOF'
+import sys, json, glob
+title = sys.argv[1].lower().strip()
+for jf in glob.glob("docs/research/*.json"):
+    try:
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for p in data.get('papers', []):
+            if p.get('title', '').lower().strip() == title:
+                doi = p.get('doi', '') or ''
+                if 'biorxiv' in doi.lower() or 'medrxiv' in doi.lower():
+                    print(doi)
+                    sys.exit(0)
+    except:
+        continue
+print('')
+BREOF
+    ) || DOI_INFO=""
+    if [ -n "$DOI_INFO" ]; then
+      PDF_URL="https://doi.org/${DOI_INFO}.full.pdf"
+    fi
+  fi
+
+  if [ -n "$PDF_URL" ]; then
+    echo -e "  ${BLUE}bioRxiv/medRxiv PDF 시도: $PDF_URL${NC}"
+    if curl -sL --max-time 30 -o "$OUTPUT" "$PDF_URL" && \
+       file "$OUTPUT" 2>/dev/null | grep -q "PDF"; then
+      return 0
+    fi
+    rm -f "$OUTPUT"
+  fi
+  return 1
+}
+
+# ── 웹 검색 → PDF URL 탐색 (최종 폴백) ───────────────────────
+try_websearch() {
+  local TITLE="$1"
+  local OUTPUT="$2"
+
+  echo -e "  ${BLUE}웹 검색 시도: \"$TITLE\"${NC}"
+
+  # Claude WebSearch로 PDF URL 탐색
+  local SEARCH_PROMPT="논문 제목: \"${TITLE}\"
+
+이 논문의 무료 전문 PDF를 찾아줘. 아래 순서로 검색:
+1. 저자 홈페이지/대학 레포지토리
+2. ResearchGate, Academia.edu
+3. 정부/기관 오픈 액세스 레포지토리
+
+규칙:
+- 반드시 직접 PDF 다운로드가 가능한 URL만 반환
+- sci-hub, libgen 등 불법 소스 제외
+- 로그인 필요한 페이지 제외
+- PDF URL을 찾으면 해당 URL만 한 줄로 출력 (https://...로 시작)
+- 못 찾으면 NOT_FOUND 한 줄만 출력"
+
+  local SEARCH_RESULT
+  SEARCH_RESULT=$(claude -p "$SEARCH_PROMPT" \
+    --model "$MODEL_LIGHT" \
+    --allowedTools "WebSearch,WebFetch" \
+    --output-format text 2>&1) || SEARCH_RESULT=""
+
+  # 결과에서 PDF URL 추출
+  local PDF_URL
+  PDF_URL=$(echo "$SEARCH_RESULT" | grep -oE 'https?://[^ ]+\.pdf' | head -1)
+
+  # .pdf 확장자가 URL에 없어도 PDF일 수 있음 — 일반 URL도 시도
+  if [ -z "$PDF_URL" ]; then
+    PDF_URL=$(echo "$SEARCH_RESULT" | grep -oE 'https?://[^ ]+' | grep -viE 'NOT_FOUND|sci-hub|libgen' | head -1)
+  fi
+
+  if [ -n "$PDF_URL" ] && [ "$PDF_URL" != "NOT_FOUND" ]; then
+    echo -e "  ${BLUE}웹 검색 PDF 발견: $PDF_URL${NC}"
+    if curl -sL --max-time 30 -o "$OUTPUT" "$PDF_URL" && \
+       file "$OUTPUT" 2>/dev/null | grep -q "PDF"; then
+      return 0
+    fi
+    rm -f "$OUTPUT"
+  fi
+  return 1
+}
+
+# ── 분야 감지 → 다운로드 순서 결정 ───────────────────────────
+# 논문 메타데이터에서 분야 판별하여 최적의 다운로드 순서 반환
+detect_field_order() {
+  local TITLE="$1"
+  local URL="$2"
+  local _FIELD_RESULT
+  _FIELD_RESULT=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TITLE" "$URL" << 'DFEOF' 2>/dev/null
+import sys, json, glob, re
+title = sys.argv[1].lower().strip()
+url = sys.argv[2].lower() if len(sys.argv) > 2 else ''
+
+# URL 기반 판별
+if 'pubmed' in url or 'ncbi' in url or 'pmc' in url:
+    print("biomedical")
+    sys.exit(0)
+if 'biorxiv' in url or 'medrxiv' in url:
+    print("biomedical")
+    sys.exit(0)
+if 'arxiv' in url:
+    print("cs_ai")
+    sys.exit(0)
+
+# research JSON에서 메타데이터 기반 판별
+for jf in glob.glob("docs/research/*.json"):
+    try:
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for p in data.get('papers', []):
+            if p.get('title', '').lower().strip() == title:
+                doi = (p.get('doi', '') or '').lower()
+                venue = (p.get('venue', '') or p.get('journal', '') or '').lower()
+                pmid = p.get('pmid', '') or p.get('pubmedId', '') or ''
+                # PMID 있으면 의생명
+                if pmid:
+                    print("biomedical")
+                    sys.exit(0)
+                # DOI prefix 판별
+                if doi.startswith('10.1101'):  # bioRxiv/medRxiv
+                    print("biomedical")
+                    sys.exit(0)
+                if doi.startswith('10.1371') or doi.startswith('10.1016'):  # PLoS, Elsevier
+                    print("biomedical")
+                    sys.exit(0)
+                # venue 키워드
+                bio_kw = ['biomedical', 'biomech', 'medical', 'clinical', 'neuro', 'physiol',
+                          'anatomy', 'kinesiol', 'rehab', 'sport', 'health', 'plos', 'bmc',
+                          'lancet', 'jama', 'nature medicine', 'cell']
+                cs_kw = ['arxiv', 'neurips', 'icml', 'iclr', 'cvpr', 'iccv', 'eccv',
+                         'aaai', 'acl', 'emnlp', 'ieee', 'acm', 'sigchi']
+                for kw in bio_kw:
+                    if kw in venue:
+                        print("biomedical")
+                        sys.exit(0)
+                for kw in cs_kw:
+                    if kw in venue:
+                        print("cs_ai")
+                        sys.exit(0)
+                break
+    except:
+        continue
+print("default")
+DFEOF
+  ) || _FIELD_RESULT="default"
+  echo "${_FIELD_RESULT:-default}" | tail -1
+}
+
 # ── 메인: pending 항목 순회 ───────────────────────────────────
 ITEMS=$(get_pending_items)
-COUNT=$(echo "$ITEMS" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+COUNT=$(echo "$ITEMS" | $PYTHON3 -c "import json,sys; print(len(json.load(sys.stdin)))")
 
 if [ "$COUNT" -eq 0 ]; then
   echo -e "${GREEN}다운로드할 새 항목 없음 (이미 모두 처리됨)${NC}"
@@ -212,7 +471,7 @@ fi
 # research JSON에서 논문 상세 정보 조회
 lookup_paper_info() {
   local TITLE="$1"
-  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 -X utf8 - "$TITLE" << 'PYEOF' 2>/dev/null || echo ""
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 - "$TITLE" << 'PYEOF' 2>/dev/null || echo ""
 import sys, json, os, glob
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -262,13 +521,39 @@ download_one() {
 
   local DOWNLOADED_OK=false
 
-  if try_arxiv "$URL" "$OUTPUT"; then
-    DOWNLOADED_OK=true
-  elif try_unpaywall "$URL" "$OUTPUT"; then
-    DOWNLOADED_OK=true
-  elif try_semantic_scholar "$TITLE" "$OUTPUT"; then
-    DOWNLOADED_OK=true
-  fi
+  # 분야 감지 → 다운로드 순서 결정
+  local FIELD_ORDER
+  FIELD_ORDER=$(detect_field_order "$TITLE" "$URL") || FIELD_ORDER="default"
+
+  case "$FIELD_ORDER" in
+    biomedical)
+      # 의생명/생체역학: PMC → Unpaywall → bioRxiv → Semantic Scholar → 웹검색
+      if try_pmc "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_unpaywall "$URL" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_biorxiv "$URL" "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_semantic_scholar "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_websearch "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      fi
+      ;;
+    cs_ai)
+      # CS/AI: arXiv → Semantic Scholar → Unpaywall → 웹검색
+      if try_arxiv "$URL" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_semantic_scholar "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_unpaywall "$URL" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_websearch "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      fi
+      ;;
+    *)
+      # 기본: arXiv → Unpaywall → Semantic Scholar → PMC → bioRxiv → 웹검색
+      if try_arxiv "$URL" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_unpaywall "$URL" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_semantic_scholar "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_pmc "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_biorxiv "$URL" "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      elif try_websearch "$TITLE" "$OUTPUT"; then DOWNLOADED_OK=true
+      fi
+      ;;
+  esac
 
   if $DOWNLOADED_OK; then
     local SIZE
@@ -284,7 +569,7 @@ download_one() {
     TODAY=$(date +%Y-%m-%d)
     local METHODS="arXiv"
     [ -n "$UNPAYWALL_EMAIL" ] && METHODS="$METHODS, Unpaywall"
-    METHODS="$METHODS, Semantic Scholar"
+    METHODS="$METHODS, Semantic Scholar, PMC, bioRxiv, WebSearch"
 
     # research JSON에서 추가 정보 조회
     local PAPER_INFO
@@ -313,7 +598,7 @@ download_one() {
 
 # 항목 목록을 임시 파일로 저장 (파이프 서브쉘 문제 회피)
 ITEM_LIST_FILE=$(mktemp)
-echo "$ITEMS" | python3 -c "
+echo "$ITEMS" | $PYTHON3 -c "
 import json, sys
 items = json.load(sys.stdin)
 for item in items:

@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "version": 2,
+    "last_updated": "2026-03-22T13:42:31.911935"
+  },
+  "builtin": [
+    {
+      "id": "subtopic_cd",
+      "pattern": "cd:.*subtopics/.*No such file or directory",
+      "fix": "fix_subtopic_dirs",
+      "severity": "critical",
+      "seen_count": 0
+    },
+    {
+      "id": "marker_fail",
+      "pattern": "변환 실패",
+      "fix": "fix_marker",
+      "severity": "warning",
+      "seen_count": 0
+    },
+    {
+      "id": "queue_util_miss",
+      "pattern": "can't open file.*queue-util\\.py",
+      "fix": "fix_queue_util",
+      "severity": "critical",
+      "seen_count": 5,
+      "last_seen": "2026-03-22T12:42:10.721496"
+    },
+    {
+      "id": "python_missing",
+      "pattern": "Python was not found",
+      "fix": "fix_noop",
+      "severity": "fatal",
+      "seen_count": 0
+    },
+    {
+      "id": "api_rate_limit",
+      "pattern": "rate.?limit|usage.?limit|429|529|overloaded|capacity",
+      "fix": "fix_rate_limit",
+      "severity": "transient",
+      "seen_count": 0
+    },
+    {
+      "id": "permission",
+      "pattern": "Permission denied",
+      "fix": "fix_permissions",
+      "severity": "critical",
+      "seen_count": 0
+    },
+    {
+      "id": "disk_full",
+      "pattern": "No space left on device",
+      "fix": "fix_noop",
+      "severity": "fatal",
+      "seen_count": 0
+    },
+    {
+      "id": "git_lock",
+      "pattern": "Unable to create.*\\.lock",
+      "fix": "fix_git_lock",
+      "severity": "critical",
+      "seen_count": 0
+    },
+    {
+      "id": "subtopics_json",
+      "pattern": "FileNotFoundError.*subtopics\\.json",
+      "fix": "fix_subtopics_json",
+      "severity": "critical",
+      "seen_count": 0
+    },
+    {
+      "id": "module_missing",
+      "pattern": "ModuleNotFoundError: No module named",
+      "fix": "fix_module",
+      "severity": "critical",
+      "seen_count": 0
+    },
+    {
+      "id": "conn_error",
+      "pattern": "ConnectionError|ConnectionRefused|ConnectionReset|ECONNREFUSED",
+      "fix": "fix_rate_limit",
+      "severity": "transient",
+      "seen_count": 0
+    },
+    {
+      "id": "timeout",
+      "pattern": "TimeoutError|timed? ?out|ETIMEDOUT",
+      "fix": "fix_rate_limit",
+      "severity": "transient",
+      "seen_count": 0
+    },
+    {
+      "id": "silent_exit",
+      "pattern": "\\[FATAL\\] line [0-9]+ exit [0-9]+ cmd:",
+      "fix": "fix_silent_exit",
+      "severity": "critical",
+      "seen_count": 0
+    }
+  ],
+  "learned": [
+    {
+      "id": "learned_20260322_131530_0",
+      "pattern": "    ✗ 탐색 실패 또는 결과 없음",
+      "description": "자동학습:     ✗ 탐색 실패 또는 결과 없음",
+      "fix": "fix_noop",
+      "severity": "unknown",
+      "seen_count": 3,
+      "first_seen": "2026-03-22T13:15:30.556200",
+      "example": "    ✗ 탐색 실패 또는 결과 없음",
+      "last_seen": "2026-03-22T13:20:33.363976"
+    }
+  ]
+}
