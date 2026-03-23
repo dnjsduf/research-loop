@@ -809,7 +809,7 @@ if os.path.exists(json_path):
             cached = json.load(f)
         cached_time = datetime.fromisoformat(cached.get('searched_at', '2000-01-01'))
         age_hours = (datetime.now() - cached_time).total_seconds() / 3600
-        if age_hours < 24 and cached.get('total_ranked', 0) >= 10:
+        if age_hours < 24 and cached.get('total_ranked', 0) >= 10 and len(cached.get('papers', [])) > 0:
             print(f"CACHE_HIT")
             print(f"RESEARCH_COMPLETE")
             print(f"SLUG={slug}")

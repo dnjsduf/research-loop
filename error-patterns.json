@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "version": 2,
-    "last_updated": "2026-03-22T13:42:31.911935"
+    "version": 3,
+    "last_updated": "2026-03-23T10:25:46.419248"
   },
   "builtin": [
     {
@@ -23,8 +23,8 @@
       "pattern": "can't open file.*queue-util\\.py",
       "fix": "fix_queue_util",
       "severity": "critical",
-      "seen_count": 5,
-      "last_seen": "2026-03-22T12:42:10.721496"
+      "seen_count": 6,
+      "last_seen": "2026-03-23T01:13:09.872488"
     },
     {
       "id": "python_missing",
@@ -38,7 +38,8 @@
       "pattern": "rate.?limit|usage.?limit|429|529|overloaded|capacity",
       "fix": "fix_rate_limit",
       "severity": "transient",
-      "seen_count": 0
+      "seen_count": 5,
+      "last_seen": "2026-03-23T10:25:46.417248"
     },
     {
       "id": "permission",
@@ -95,19 +96,15 @@
       "fix": "fix_silent_exit",
       "severity": "critical",
       "seen_count": 0
+    },
+    {
+      "id": "process_stall",
+      "pattern": "\\[STALL\\]",
+      "fix": "fix_stall",
+      "severity": "critical",
+      "seen_count": 0
     }
   ],
-  "learned": [
-    {
-      "id": "learned_20260322_131530_0",
-      "pattern": "    ✗ 탐색 실패 또는 결과 없음",
-      "description": "자동학습:     ✗ 탐색 실패 또는 결과 없음",
-      "fix": "fix_noop",
-      "severity": "unknown",
-      "seen_count": 3,
-      "first_seen": "2026-03-22T13:15:30.556200",
-      "example": "    ✗ 탐색 실패 또는 결과 없음",
-      "last_seen": "2026-03-22T13:20:33.363976"
-    }
-  ]
+  "stalls": [],
+  "learned": []
 }

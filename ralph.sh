@@ -17,6 +17,13 @@
 set -eo pipefail
 trap 'echo "[FATAL] line $LINENO exit $? cmd: $BASH_COMMAND" >&2' ERR
 
+# 환경변수 로드 (non-interactive 서브쉘에서 .bashrc 미로드 대응)
+if [ -z "$CLAUDE_CODE_SESSION_ACCESS_TOKEN" ] && [ -f "$HOME/.bashrc" ]; then
+  set +eo pipefail
+  source "$HOME/.bashrc" 2>/dev/null || true
+  set -eo pipefail
+fi
+
 _RALPH_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ══════════════════════════════════════════════════════════════
@@ -24,17 +31,21 @@ _RALPH_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # ══════════════════════════════════════════════════════════════
 if [[ " $* " != *" --_inner "* ]] && [[ " $* " != *" --no-recovery "* ]]; then
 
-  # --max-retries, --no-recovery 파싱
+  # --max-retries, --no-recovery, --stall-timeout 파싱
   _MAX_RETRIES=3
+  _STALL_TIMEOUT=900  # 15분 기본값
   _PASSTHROUGH_ARGS=()
   _NEXT=""
   for _arg in "$@"; do
     case "$_arg" in
       --max-retries) _NEXT="retries" ;;
+      --stall-timeout) _NEXT="stall" ;;
       --no-recovery) ;; # 여기 안 옴 (위 조건에서 걸림)
       *)
         if [ "$_NEXT" = "retries" ]; then
           _MAX_RETRIES="$_arg"; _NEXT=""
+        elif [ "$_NEXT" = "stall" ]; then
+          _STALL_TIMEOUT="$_arg"; _NEXT=""
         else
           _PASSTHROUGH_ARGS+=("$_arg")
         fi ;;
@@ -59,7 +70,7 @@ if [[ " $* " != *" --_inner "* ]] && [[ " $* " != *" --no-recovery "* ]]; then
   if [ ! -f "$_ERROR_DB" ]; then
     cat > "$_ERROR_DB" << 'INITJSON'
 {
-  "_meta": { "version": 2, "last_updated": "" },
+  "_meta": { "version": 3, "last_updated": "" },
   "builtin": [
     { "id": "subtopic_cd",     "pattern": "cd:.*subtopics/.*No such file or directory", "fix": "fix_subtopic_dirs", "severity": "critical", "seen_count": 0 },
     { "id": "marker_fail",     "pattern": "변환 실패", "fix": "fix_marker", "severity": "warning", "seen_count": 0 },
@@ -73,8 +84,10 @@ if [[ " $* " != *" --_inner "* ]] && [[ " $* " != *" --no-recovery "* ]]; then
     { "id": "module_missing",  "pattern": "ModuleNotFoundError: No module named", "fix": "fix_module", "severity": "critical", "seen_count": 0 },
     { "id": "conn_error",      "pattern": "ConnectionError|ConnectionRefused|ConnectionReset|ECONNREFUSED", "fix": "fix_rate_limit", "severity": "transient", "seen_count": 0 },
     { "id": "timeout",         "pattern": "TimeoutError|timed? ?out|ETIMEDOUT", "fix": "fix_rate_limit", "severity": "transient", "seen_count": 0 },
-    { "id": "silent_exit",    "pattern": "\\[FATAL\\] line [0-9]+ exit [0-9]+ cmd:", "fix": "fix_silent_exit", "severity": "critical", "seen_count": 0 }
+    { "id": "silent_exit",    "pattern": "\\[FATAL\\] line [0-9]+ exit [0-9]+ cmd:", "fix": "fix_silent_exit", "severity": "critical", "seen_count": 0 },
+    { "id": "process_stall",  "pattern": "\\[STALL\\]", "fix": "fix_stall", "severity": "critical", "seen_count": 0 }
   ],
+  "stalls": [],
   "learned": []
 }
 INITJSON
@@ -106,7 +119,7 @@ for leaf in data.get('leaves',[]):
   _fix_rate_limit() {
     local DELAY="${_RETRY_DELAY:-30}"
     echo -e "${YELLOW}  [복구] rate limit — ${DELAY}초 대기${NC}"
-    sleep "$DELAY"
+    _heartbeat_sleep "$DELAY" "rate-limit-backoff"
     _RETRY_DELAY=$(( DELAY * 2 ))
     if [ "${_RETRY_DELAY}" -gt 300 ]; then _RETRY_DELAY=300; fi
   }
@@ -176,6 +189,48 @@ for leaf in data.get('leaves',[]):
     echo -e "${RED}  [복구 불가] 수동 조치 필요${NC}"
     return 1
   }
+  _fix_stall() {
+    local WD="$1"
+    echo -e "${YELLOW}  [복구] 프로세스 정지 감지 — 자동 재시도${NC}"
+    # stalls[] 히스토리 확인: 같은 step 2회 이상이면 경고
+    if [ -n "$_PY3" ] && [ -f "$_ERROR_DB" ]; then
+      $_PY3 -c "
+import json
+with open('$_ERROR_DB','r',encoding='utf-8') as f: db=json.load(f)
+for s in db.get('stalls',[]):
+    if s.get('seen_count',0)>=2:
+        print(f\"  ⚠ 반복 정지: {s['last_health_step']} ({s['seen_count']}회)\")
+" 2>/dev/null || true
+    fi
+    return 0
+  }
+
+  # ── Stall 진단: 마지막 상태에서 원인 분류 ──────────────────
+  _diagnose_stall() {
+    local LOG="$1"
+    local LAST_HEALTH LAST_OUT STALL_TYPE="unknown_stall"
+
+    LAST_HEALTH=$(grep -a '\[HEALTH\]' "$LOG" 2>/dev/null | tail -1 | sed 's/\x1b\[[0-9;]*m//g' || echo "")
+    LAST_OUT=$(tail -20 "$LOG" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || echo "")
+
+    # 분류
+    if echo "$LAST_OUT" | grep -qiE 'api_get|urlopen|openalex|semantic.scholar|crossref|httpx|requests'; then
+      STALL_TYPE="api_stall"
+    elif echo "$LAST_OUT" | grep -qiE 'claude|anthropic'; then
+      STALL_TYPE="claude_stall"
+    elif echo "$LAST_OUT" | grep -qiE 'marker|pdf|convert'; then
+      STALL_TYPE="pdf_stall"
+    elif echo "$LAST_OUT" | grep -qiE 'git|push|commit|pull'; then
+      STALL_TYPE="git_stall"
+    fi
+
+    local LAST_STEP
+    LAST_STEP=$(echo "$LAST_HEALTH" | sed 's/\[HEALTH\] //' | cut -d'|' -f1 | tr -d ' ' 2>/dev/null || echo "unknown")
+    local SNIPPET
+    SNIPPET=$(echo "$LAST_OUT" | tail -3 | tr '\n' ' ' | head -c 200)
+
+    echo "${STALL_TYPE}|${LAST_STEP}|${SNIPPET}"
+  }
 
   # ── 에러 분석 + 복구 ───────────────────────────────────────
   _analyze_and_fix() {
@@ -228,13 +283,54 @@ MATCHEOF
       done <<< "$MATCHES"
     fi
 
+    # 1.5) [STALL] 분석 — stall 패턴 감지 및 학습
+    if grep -q '\[STALL\]' "$LOG" 2>/dev/null; then
+      local STALL_INFO
+      STALL_INFO=$(_diagnose_stall "$LOG")
+      local _S_TYPE _S_STEP _S_SNIPPET
+      _S_TYPE=$(echo "$STALL_INFO" | cut -d'|' -f1)
+      _S_STEP=$(echo "$STALL_INFO" | cut -d'|' -f2)
+      _S_SNIPPET=$(echo "$STALL_INFO" | cut -d'|' -f3-)
+      echo -e "${RED}  ✗ [STALL] ${_S_TYPE} @ ${_S_STEP}${NC}"
+      echo -e "${YELLOW}    마지막 출력: ${_S_SNIPPET:0:100}${NC}"
+      FOUND=$((FOUND + 1))
+
+      # stalls[] 배열에 학습 기록
+      if [ -n "$_PY3" ] && [ -f "$_ERROR_DB" ]; then
+        PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $_PY3 -X utf8 - "$_ERROR_DB" "$_S_TYPE" "$_S_STEP" "$_S_SNIPPET" << 'STALLEOF'
+import json, sys
+from datetime import datetime
+db_file, s_type, s_step, s_snippet = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv)>4 else ""
+with open(db_file, 'r', encoding='utf-8') as f: db = json.load(f)
+if 'stalls' not in db: db['stalls'] = []
+# 기존 동일 step 패턴 찾기
+found = False
+for s in db['stalls']:
+    if s.get('last_health_step') == s_step and s.get('stall_type', '') == s_type:
+        s['seen_count'] = s.get('seen_count', 0) + 1
+        s['last_seen'] = datetime.now().isoformat()
+        found = True
+        break
+if not found:
+    nid = f"stall_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(db['stalls'])}"
+    db['stalls'].append({
+        "id": nid, "stall_type": s_type, "last_health_step": s_step,
+        "last_output_pattern": s_snippet[:200], "seen_count": 1,
+        "first_seen": datetime.now().isoformat(), "resolution": "kill_and_retry"
+    })
+db['_meta']['last_updated'] = datetime.now().isoformat()
+with open(db_file, 'w', encoding='utf-8') as f: json.dump(db, f, ensure_ascii=False, indent=2)
+STALLEOF
+      fi
+    fi
+
     # 2) [HEALTH] 태그 분석
     local H_OK=0 H_FAIL=0
     while IFS= read -r hline; do
       local clean step status
       clean=$(echo "$hline" | sed 's/\x1b\[[0-9;]*m//g')
-      status=$(echo "$clean" | sed 's/\[HEALTH\] //' | cut -d'|' -f2 | xargs)
-      step=$(echo "$clean" | sed 's/\[HEALTH\] //' | cut -d'|' -f1 | xargs)
+      status=$(echo "$clean" | sed 's/\[HEALTH\] //' | cut -d'|' -f2 | tr -d ' ')
+      step=$(echo "$clean" | sed 's/\[HEALTH\] //' | cut -d'|' -f1 | tr -d ' ')
       case "$status" in
         OK)   H_OK=$((H_OK + 1)) ;;
         FAIL) H_FAIL=$((H_FAIL + 1)); FOUND=$((FOUND + 1)) ;;
@@ -330,13 +426,13 @@ LEARNEOF
 
   echo -e "${CYAN}══════════════════════════════════════${NC}"
   echo -e "${CYAN}   Ralph Knowledge Pipeline${NC}"
-  echo -e "${CYAN}   (auto-recovery: ${GREEN}ON${CYAN}, max-retries: ${GREEN}${_MAX_RETRIES}${CYAN})${NC}"
+  echo -e "${CYAN}   (auto-recovery: ${GREEN}ON${CYAN}, max-retries: ${GREEN}${_MAX_RETRIES}${CYAN}, stall-timeout: ${GREEN}${_STALL_TIMEOUT}s${CYAN})${NC}"
   echo -e "${CYAN}══════════════════════════════════════${NC}"
 
   for ((_retry=0; _retry<=_MAX_RETRIES; _retry++)); do
     if [ "$_retry" -gt 0 ]; then
       echo -e "\n${YELLOW}=== 재시도 ${_retry}/${_MAX_RETRIES} (${_RETRY_DELAY}초 후) ===${NC}"
-      sleep "$_RETRY_DELAY"
+      _heartbeat_sleep "$_RETRY_DELAY" "retry-backoff"
     fi
 
     _ATTEMPT_LOG="${_LOG_DIR}/attempt_${_retry}_$(date +%H%M%S).log"
@@ -344,10 +440,34 @@ LEARNEOF
     echo -e "${BLUE}▶ 실행 시작 (시도 $((_retry+1))/$((_MAX_RETRIES+1)))${NC}"
 
     _EXIT=0
-    set +eo pipefail  # recovery 래퍼: 에러를 잡아서 분석해야 하므로 비활성화
-    bash "$0" "${_PASSTHROUGH_ARGS[@]}" --_inner 2>&1 | tee "$_ATTEMPT_LOG"
-    _EXIT=${PIPESTATUS[0]}  # bash(파이프 첫 번째)의 exit code
+    set +eo pipefail
+    trap - ERR  # recovery 래퍼에서 ERR trap 비활성화
+
+    # watchdog 기반 실행: 파일 직접 쓰기 + tail -f + stall 감지
+    bash "$0" "${_PASSTHROUGH_ARGS[@]}" --_inner > "$_ATTEMPT_LOG" 2>&1 &
+    _INNER_PID=$!
+    _watchdog_tee "$_INNER_PID" "$_ATTEMPT_LOG" "${_STALL_TIMEOUT:-900}" "main" &
+    _WD_PID=$!
+
+    # tail -f: 프로세스 종료 시 자동 정리 (kill -0 폴링 방식)
+    (
+      # 로그 파일 생성 대기
+      local _TW=0
+      while [ ! -f "$_ATTEMPT_LOG" ] && [ "$_TW" -lt 30 ]; do sleep 1; _TW=$((_TW+1)); done
+      tail -f "$_ATTEMPT_LOG" 2>/dev/null &
+      _TAIL_INNER=$!
+      while kill -0 "$_INNER_PID" 2>/dev/null; do sleep 2; done
+      sleep 1
+      kill "$_TAIL_INNER" 2>/dev/null
+    ) &
+    _TAIL_PID=$!
+
+    wait "$_INNER_PID" 2>/dev/null; _EXIT=$?
+    kill "$_WD_PID" "$_TAIL_PID" 2>/dev/null
+    wait "$_WD_PID" "$_TAIL_PID" 2>/dev/null || true
+
     set -eo pipefail
+    trap 'echo "[FATAL] line $LINENO exit $? cmd: $BASH_COMMAND" >&2' ERR  # ERR trap 복원
 
     if [ "$_EXIT" -eq 0 ]; then
       echo -e "\n${GREEN}✓ 정상 완료!${NC}"
@@ -366,6 +486,88 @@ LEARNEOF
   done
   exit 1
 fi
+
+# ══════════════════════════════════════════════════════════════
+# 전역 유틸리티 (recovery 래퍼 + inner 모드 양쪽에서 사용)
+# ══════════════════════════════════════════════════════════════
+
+# 프로세스 트리 kill (자식 먼저 → 부모)
+_kill_tree() {
+  local TARGET=$1
+  local CHILDREN
+  CHILDREN=$(ps -o pid= --ppid "$TARGET" 2>/dev/null) || true
+  for child in $CHILDREN; do
+    _kill_tree "$child"
+  done
+  kill -TERM "$TARGET" 2>/dev/null || true
+}
+
+# 하트비트 sleep (watchdog 오판 방지)
+_heartbeat_sleep() {
+  local TOTAL="$1" LABEL="${2:-waiting}"
+  local ELAPSED=0
+  while [ "$ELAPSED" -lt "$TOTAL" ]; do
+    local CHUNK=60
+    if [ $((TOTAL - ELAPSED)) -lt 60 ]; then CHUNK=$((TOTAL - ELAPSED)); fi
+    sleep "$CHUNK"
+    ELAPSED=$((ELAPSED + CHUNK))
+    echo -e "[HEARTBEAT] ${LABEL} | ${ELAPSED}/${TOTAL}s | $(date -Iseconds)"
+  done
+}
+
+# Watchdog: 로그 파일 크기 폴링 → stall 감지 → kill
+_watchdog_tee() {
+  local PID="$1" LOG_FILE="$2" TIMEOUT="${3:-900}" LABEL="${4:-unknown}"
+  local POLL=30 IDLE=0 PREV_SIZE=0 CUR_SIZE=0
+
+  # 로그 파일 생성 대기 (최대 120초 — 서브쉘 초기화 시간 고려)
+  local _FWAIT=0
+  while [ ! -f "$LOG_FILE" ] && [ "$_FWAIT" -lt 120 ]; do
+    sleep 2; _FWAIT=$((_FWAIT + 2))
+    if ! kill -0 "$PID" 2>/dev/null; then return 0; fi
+  done
+  if [ ! -f "$LOG_FILE" ]; then
+    # 디렉토리가 없을 수 있으므로 stderr로 출력
+    echo "[STALL] ${LABEL} | 로그파일 미생성 | ${_FWAIT}s" >&2
+    _kill_tree "$PID"
+    sleep 5
+    kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null
+    return 1
+  fi
+
+  PREV_SIZE=$(stat --format=%s "$LOG_FILE" 2>/dev/null || echo 0)
+
+  while kill -0 "$PID" 2>/dev/null; do
+    sleep "$POLL"
+    if ! kill -0 "$PID" 2>/dev/null; then break; fi
+
+    CUR_SIZE=$(stat --format=%s "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$CUR_SIZE" -gt "$PREV_SIZE" ]; then
+      IDLE=0
+      PREV_SIZE="$CUR_SIZE"
+    else
+      IDLE=$((IDLE + POLL))
+    fi
+
+    if [ "$IDLE" -ge "$TIMEOUT" ]; then
+      local LAST_HEALTH LAST_LINES
+      LAST_HEALTH=$(grep -a '\[HEALTH\]' "$LOG_FILE" 2>/dev/null | tail -1 | sed 's/\x1b\[[0-9;]*m//g' || echo "(없음)")
+      LAST_LINES=$(tail -5 "$LOG_FILE" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ' || echo "(없음)")
+
+      echo -e "\n[STALL] ${LABEL} | ${LAST_HEALTH} | idle=${IDLE}s | ${LAST_LINES}" >> "$LOG_FILE"
+      echo -e "\033[0;31m[STALL] 프로세스 정지 감지: ${LABEL} (${IDLE}초 무응답)\033[0m" >> "$LOG_FILE"
+
+      _kill_tree "$PID"
+      sleep 5
+      kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null
+      return 1
+    fi
+  done
+  return 0
+}
+
+# _STALL_TIMEOUT 기본값 (recovery 래퍼에서 이미 파싱했으면 상속, 아니면 기본 900초)
+_STALL_TIMEOUT=${_STALL_TIMEOUT:-900}
 
 # ══════════════════════════════════════════════════════════════
 # 여기서부터 실제 파이프라인 로직 (--_inner 모드)
@@ -445,7 +647,7 @@ MAX_ITERATIONS=10
 RUN_ONLY=false
 UPDATE_MODE=false
 NO_SPLIT=false
-PARALLEL=5
+PARALLEL=3
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -454,7 +656,8 @@ while [[ $# -gt 0 ]]; do
     --update)     UPDATE_MODE=true; shift ;;
     --email)      UNPAYWALL_EMAIL="$2"; export UNPAYWALL_EMAIL; shift 2 ;;
     --no-split)   NO_SPLIT=true; shift ;;
-    --parallel)   PARALLEL="$2"; if [ "$PARALLEL" -gt 5 ]; then PARALLEL=5; fi; shift 2 ;;
+    --phase2)     SKIP_TO_PHASE2=true; shift ;;
+    --parallel)   PARALLEL="$2"; if [ "$PARALLEL" -gt 5 ]; then PARALLEL=5; fi; shift 2 ;;  # 기본 3, 최대 5
     --model-heavy) MODEL_HEAVY="$2"; shift 2 ;;
     --model-light) MODEL_LIGHT="$2"; shift 2 ;;
     --max-retries) shift 2 ;;  # recovery 래퍼에서 처리됨
@@ -1122,10 +1325,15 @@ fi
 
 # ── MECE 주제 분할 + 병렬 실행 ─────────────────────────────────
 if [ -n "$TOPIC" ] && [ "$NO_SPLIT" = false ] && [ "$RUN_ONLY" = false ]; then
+  SUBTOPICS_JSON="subtopics.json"
+
+  # --phase2: 기존 subtopics.json이 있으면 Phase 1 스킵
+  if [ "${SKIP_TO_PHASE2:-false}" = true ] && [ -f "$SUBTOPICS_JSON" ]; then
+    echo -e "${YELLOW}=== --phase2: 기존 subtopics.json 사용, Phase 1 스킵 ===${NC}"
+    echo ""
+  else
   echo -e "${CYAN}=== MECE 주제 분할 ===${NC}"
   echo ""
-
-  SUBTOPICS_JSON="subtopics.json"
 
   # Phase 1: 재귀 분할 (트리 생성)
   # subtopics.json 초기화
@@ -1272,6 +1480,7 @@ ROOTEOF
 
   # 재귀 분할 시작
   split_topic_recursive "$TOPIC" 0 ""
+  fi  # --phase2 Phase 1 스킵 블록 끝
 
   # 리프 노드 개수 확인
   LEAF_COUNT=$(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $PYTHON3 -X utf8 -c "
@@ -1309,6 +1518,10 @@ LLEOF
     echo -e "${YELLOW}  [DEBUG] LEAF_LIST: ${LEAF_LINE_COUNT}줄${NC}"
     echo "$LEAF_LIST" | head -10 | while IFS= read -r dbg; do echo "    $dbg"; done
 
+    # --phase2: Phase 1.5 스킵하고 바로 Phase 2로
+    if [ "${SKIP_TO_PHASE2:-false}" = true ]; then
+      echo -e "${YELLOW}=== --phase2: Phase 1.5 스킵 → Phase 2 직행 ===${NC}"
+    else
     # ── Phase 1.5: 리프별 논문 탐색 + Claude 연관성 검증 + 일괄 PDF 다운로드 ──
     echo ""
     echo -e "${CYAN}=== Phase 1.5: 리프별 논문 탐색 + 연관성 검증 ===${NC}"
@@ -1470,17 +1683,24 @@ RMEOF
       BATCH_OK=$((BATCH_OK + 1))
     done
 
+    echo "[DEBUG-TRACE] before batch_total check (BATCH_TOTAL=$BATCH_TOTAL)" >&2
+    set -x
     if [ "$BATCH_TOTAL" -gt 0 ]; then
       echo -e "${GREEN}  ✓ 연관성 검증 완료: ${BATCH_OK}/${BATCH_TOTAL} 배치 성공, 총 ${TOTAL_REMOVED}개 제거${NC}"
       _REL_STATUS="OK"
       if [ "$BATCH_FAIL" -gt 0 ]; then _REL_STATUS="WARN"; fi
+      echo "[DEBUG-TRACE] before health_check (_REL_STATUS=$_REL_STATUS)" >&2
       health_check "phase1.5-relevance" "$_REL_STATUS" \
         "${BATCH_OK}/${BATCH_TOTAL} 배치, ${TOTAL_REMOVED}개 제거"
+      echo "[DEBUG-TRACE] after health_check, before report_step" >&2
       report_step "phase1.5-relevance" "OK" "${TOTAL_REMOVED}개 비관련 논문 제거 (${BATCH_OK}/${BATCH_TOTAL} 배치)"
+      echo "[DEBUG-TRACE] after report_step" >&2
     else
       echo -e "${YELLOW}  ⚠ 검증할 논문 없음 — 스킵${NC}"
       report_step "phase1.5-relevance" "SKIP" "논문 0편"
     fi
+    echo "[DEBUG-TRACE] after fi" >&2
+    set +x
     echo ""
 
     # C. 정제된 논문 일괄 PDF 다운로드
@@ -1503,6 +1723,7 @@ RMEOF
     fi
 
     git_commit "phase1.5: ${TOPIC} — 리프별 탐색 + 연관성 검증 + PDF 다운로드 + MD 변환"
+    fi  # --phase2 스킵 블록 끝
     echo ""
     echo -e "${CYAN}=== Phase 1.5 완료 → Phase 2 병렬 실행 시작 ===${NC}"
     echo ""
@@ -1521,6 +1742,9 @@ RMEOF
       local PIDS=()
       local BTOPICS=()
       local BPATHS=()
+
+      # Phase 2 내부: set -e로 인한 갑작스러운 종료 방지
+      set +e
 
       while IFS= read -r leaf_line <&4; do
         [ -z "$leaf_line" ] && continue
@@ -1556,9 +1780,18 @@ RMEOF
         if [ "$RUNNING" -ge "$PARALLEL" ]; then
           BATCH_NUM=$((BATCH_NUM + 1))
           echo -e "${YELLOW}  ⏳ ${LABEL} 배치 ${BATCH_NUM} 대기 (${RUNNING}개 실행 중)...${NC}"
+          # per-process watchdog 시작
+          local -a WD_PIDS=()
+          for idx in "${!PIDS[@]}"; do
+            local _WD_LEAF_PATH="$(echo "${BPATHS[$idx]##*|||}" | tr -d '\r')"
+            local _WD_LOG="subtopics/${_WD_LEAF_PATH}/ralph-output.log"
+            _watchdog_tee "${PIDS[$idx]}" "$_WD_LOG" "${_STALL_TIMEOUT:-900}" "phase2:${BTOPICS[$idx]}" &
+            WD_PIDS[$idx]=$!
+          done
           for idx in "${!PIDS[@]}"; do
             EXIT_CODE=0
             wait "${PIDS[$idx]}" 2>/dev/null || EXIT_CODE=$?
+            kill "${WD_PIDS[$idx]}" 2>/dev/null; wait "${WD_PIDS[$idx]}" 2>/dev/null || true
             if [ "$EXIT_CODE" -eq 0 ]; then
               echo -e "${GREEN}  ✓ 완료: \"${BTOPICS[$idx]}\"${NC}"
               health_check "phase2-batch" "OK" "${BTOPICS[$idx]}"
@@ -1570,7 +1803,7 @@ RMEOF
               local LEAF_LOG="subtopics/${LEAF_P##*|||}/ralph-output.log"
               local ERR_DETAIL=""
               if [ -f "$LEAF_LOG" ]; then
-                ERR_DETAIL=$(grep -iE "error|fatal|fail|exception|traceback|errno" "$LEAF_LOG" | tail -3 | tr '\n' ' ')
+                ERR_DETAIL=$(grep -iE "error|fatal|fail|exception|traceback|errno|STALL" "$LEAF_LOG" | tail -3 | tr '\n' ' ')
               fi
               health_check "phase2-batch" "FAIL" "${BTOPICS[$idx]} | exit=${EXIT_CODE} | ${ERR_DETAIL:-(로그 없음)}"
               FAILED=$((FAILED + 1))
@@ -1593,9 +1826,17 @@ RMEOF
       if [ "$RUNNING" -gt 0 ]; then
         BATCH_NUM=$((BATCH_NUM + 1))
         echo -e "${YELLOW}  ⏳ ${LABEL} 배치 ${BATCH_NUM} 대기 (${RUNNING}개 실행 중)...${NC}"
+        # per-process watchdog 시작
+        local -a WD_PIDS=()
+        for idx in "${!PIDS[@]}"; do
+          local _WD_LOG="subtopics/${BPATHS[$idx]##*|||}/ralph-output.log"
+          _watchdog_tee "${PIDS[$idx]}" "$_WD_LOG" "${_STALL_TIMEOUT:-900}" "phase2:${BTOPICS[$idx]}" &
+          WD_PIDS[$idx]=$!
+        done
         for idx in "${!PIDS[@]}"; do
           EXIT_CODE=0
           wait "${PIDS[$idx]}" 2>/dev/null || EXIT_CODE=$?
+          kill "${WD_PIDS[$idx]}" 2>/dev/null; wait "${WD_PIDS[$idx]}" 2>/dev/null || true
           if [ "$EXIT_CODE" -eq 0 ]; then
             echo -e "${GREEN}  ✓ 완료: \"${BTOPICS[$idx]}\"${NC}"
             health_check "phase2-batch" "OK" "${BTOPICS[$idx]}"
@@ -1606,7 +1847,7 @@ RMEOF
             local LEAF_LOG="subtopics/${LEAF_P##*|||}/ralph-output.log"
             local ERR_DETAIL=""
             if [ -f "$LEAF_LOG" ]; then
-              ERR_DETAIL=$(grep -iE "error|fatal|fail|exception|traceback|errno" "$LEAF_LOG" | tail -3 | tr '\n' ' ')
+              ERR_DETAIL=$(grep -iE "error|fatal|fail|exception|traceback|errno|STALL" "$LEAF_LOG" | tail -3 | tr '\n' ' ')
             fi
             health_check "phase2-batch" "FAIL" "${BTOPICS[$idx]} | exit=${EXIT_CODE} | ${ERR_DETAIL:-(로그 없음)}"
             FAILED=$((FAILED + 1))
@@ -1619,6 +1860,9 @@ RMEOF
       local _LS_STATUS="OK"; if [ "$FAILED" -gt 0 ]; then _LS_STATUS="WARN"; fi
       health_check "${LABEL}-summary" "$_LS_STATUS" \
         "완료=${COMPLETED} 실패=${FAILED} 총=${LEAF_COUNT:-?}"
+
+      # Phase 2 완료: set -e 복원
+      set -e
     }
 
     # 1차 실행
@@ -1652,7 +1896,7 @@ RMEOF
       while ! check_claude_available; do
         POLL=$((POLL + 1))
         echo -e "${YELLOW}  ⏳ 리밋 대기 중... (${POLL}번째 체크, 5분 후 재확인) [$(date '+%H:%M:%S')]${NC}"
-        sleep 300
+        _heartbeat_sleep 300 "limit-polling"
       done
 
       echo -e "${GREEN}  ✓ Claude 사용 가능 확인! 재시도 ${RETRY} 시작${NC}"
